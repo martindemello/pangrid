@@ -8,6 +8,30 @@ FILE_MAGIC = 'ACROSS&DOWN'
 class PuzzleFormatError < Exception
 end
 
+# various extensions
+def read_ltim(s, e)
+  m = s.match /^(\d+),(\d+)\0$/
+  raise PuzzleFormatError unless m
+  e.elapsed = m[0].to_i
+  e.stopped = m[1] == "1"
+end
+
+def read_rtbl(s, e)
+  rx = /(([\d ]\d):(\w+);)/
+  m = s.match /^#{rx}*\0$/
+  raise PuzzleFormatError unless m
+  e.rebus = {}
+  s.scan(rx).each {|_, k, v|
+    e.rebus[k.to_i] = v
+  }
+end
+
+def read_gext(s, e)
+end
+
+def grbs(s, e)
+end
+
 def read_puz(filename)
   s = IO.read(filename, :encoding => "ISO-8859-1")
   # crossword
@@ -55,4 +79,13 @@ end
 c, x = read_puz ARGV[0]
 p x.n_clues
 p x.clues.length
-p x.extensions
+#p x.extensions
+
+x.extensions.each do |e|
+  p e.section
+  if e.section == "RTBL"
+    read_rtbl e.data, e
+    p e
+  end
+end
+
