@@ -1,16 +1,16 @@
 require 'ostruct'
 
-HEADER_FORMAT = "v A12 v V2 A4 v2 A12 c2 v3"
-EXT_HEADER_FORMAT = "A4 v2"
-
-FILE_MAGIC = 'ACROSS&DOWN'
-
 class PuzzleFormatError < Exception
 end
 
 class AcrossLite
   # crossword, checksums
   attr_accessor :x, :c
+
+  HEADER_FORMAT = "v A12 v V2 A4 v2 A12 c2 v3"
+  EXT_HEADER_FORMAT = "A4 v2"
+  EXTENSIONS = %w(LTIM GRBS RTBL GEXT)
+  FILE_MAGIC = 'ACROSS&DOWN'
 
   def initialize
     @x = OpenStruct.new
@@ -47,9 +47,11 @@ class AcrossLite
     while (s.length > 8) do
       e = OpenStruct.new
       e.section, e.len, e.checksum = s.unpack(EXT_HEADER_FORMAT)
+      raise PuzzleFormatError unless EXTENSIONS.include? e.section
       size = 8 + e.len + 1
       break if s.length < size
       e.data = s[8 ... size]
+      self.send(:"read_#{e.section.downcase}", e)
       x.extensions << e
       s = s[size .. -1]
     end
@@ -74,10 +76,13 @@ class AcrossLite
   end
 
   def read_gext(e)
-
+    e.grid = e.data.bytes
   end
 
   def read_grbs(e)
+    e.grid = e.data.bytes.map {|b|
+      b == 0 ? b : b - 1
+    }
   end
 end
 
@@ -88,10 +93,6 @@ p a.x.clues.length
 #p x.extensions
 
 a.x.extensions.each do |e|
-  p e.section
-  if e.section == "RTBL"
-    a.read_rtbl e
-    p e
-  end
+  p e
 end
 
