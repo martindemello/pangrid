@@ -41,7 +41,7 @@ class AcrossLite
   HEADER_CHECKSUM_FORMAT = "c2 v3"
   EXT_HEADER_FORMAT = "A4 v2"
   EXTENSIONS = %w(LTIM GRBS RTBL GEXT)
-  FILE_MAGIC = 'ACROSS&DOWN'
+  FILE_MAGIC = "ACROSS&DOWN\0"
 
   def initialize
     @xw = OpenStruct.new
@@ -91,12 +91,35 @@ class AcrossLite
     raise PuzzleFormatError unless checksums == cs
   end
 
+  def write_puz
+    @cs = checksums
+    h = [cs.global, FILE_MAGIC, cs.cib, cs.masked_low, cs.masked_high,
+         xw.version + "\0", 0, cs.scrambled, "\0" * 12,
+         xw.width, xw.height, xw.n_clues, xw.puzzle_type, xw.scrambled_state]
+    header = h.pack(HEADER_FORMAT)
+    extensions = xw.extensions.map {|e|
+      [e.section, e.len, e.checksum].pack(EXT_HEADER_FORMAT) +
+        self.send(:"write_#{e.section.downcase}", e)
+    }.join
+
+    strings = [xw.title, xw.author, xw.copyright] + xw.clues + [xw.notes]
+    strings = strings.map {|x| x + "\0"}.join
+
+    [header, xw.solution, xw.fill, strings, extensions].map {|x|
+      x.force_encoding("ISO-8859-1")
+    }.join
+  end
+
   # various extensions
   def read_ltim(e)
     m = e.data.match /^(\d+),(\d+)\0$/
     raise PuzzleFormatError unless m
-    e.elapsed = m[0].to_i
-    e.stopped = m[1] == "1"
+    e.elapsed = m[1].to_i
+    e.stopped = m[2] == "1"
+  end
+
+  def write_ltim(e)
+    e.elapsed.to_s + "," + (e.stopped ? "1" : "0") + "\0"
   end
 
   def read_rtbl(e)
@@ -109,14 +132,26 @@ class AcrossLite
     }
   end
 
+  def write_rtbl(e)
+    e.rebus.keys.sort.map {|x|
+      x.to_s.rjust(2) + ":" + e.rebus[x] + ";"
+    }.join + "\0"
+  end
+
   def read_gext(e)
     e.grid = e.data.bytes
   end
 
+  def write_gext(e)
+    e.grid.map(&:chr).join
+  end
+
   def read_grbs(e)
-    e.grid = e.data.bytes.map {|b|
-      b == 0 ? b : b - 1
-    }
+    e.grid = e.data.bytes.map {|b| b == 0 ? 0 : b - 1 }
+  end
+
+  def write_grbs(e)
+    e.grid.map {|x| x == 0 ? 0 : x + 1}.map(&:chr).join
   end
 
   # checksums
@@ -171,3 +206,4 @@ end
 
 a = AcrossLite.new
 a.read_puz ARGV[0]
+print a.write_puz
