@@ -3,6 +3,10 @@ require 'ostruct'
 class PuzzleFormatError < Exception
 end
 
+def check
+  raise PuzzleFormatError unless yield
+end
+
 # CRC checksum
 class Checksum
   attr_accessor :sum
@@ -42,17 +46,19 @@ class AcrossLite
   EXT_HEADER_FORMAT = "A4 v2"
   EXTENSIONS = %w(LTIM GRBS RTBL GEXT)
   FILE_MAGIC = "ACROSS&DOWN\0"
+  TEXT_HEADINGS = %w( TITLE AUTHOR COPYRIGHT SIZE GRID REBUS ACROSS DOWN NOTEPAD )
 
   def initialize
     @xw = OpenStruct.new
     @cs = OpenStruct.new
   end
 
+  # binary format
   def read_puz(filename)
     s = IO.read(filename, :encoding => "ISO-8859-1")
 
     i = s.index(FILE_MAGIC)
-    raise PuzzleFormatError unless i
+    check { i } 
 
     # read the header
     h_start, h_end = i - 2, i - 2 + 0x34
@@ -78,7 +84,7 @@ class AcrossLite
     while (s.length > 8) do
       e = OpenStruct.new
       e.section, e.len, e.checksum = s.unpack(EXT_HEADER_FORMAT)
-      raise PuzzleFormatError unless EXTENSIONS.include? e.section
+      check { EXTENSIONS.include? e.section }
       size = 8 + e.len + 1
       break if s.length < size
       e.data = s[8 ... size]
@@ -88,7 +94,7 @@ class AcrossLite
     end
 
     # verify checksums
-    raise PuzzleFormatError unless checksums == cs
+    check { checksums == cs }
   end
 
   def write_puz
@@ -111,9 +117,14 @@ class AcrossLite
   end
 
   # various extensions
+  def get_extension(s)
+    return nil unless xw.extensions
+    xw.extensions.find {|e| e.section == s}
+  end
+
   def read_ltim(e)
     m = e.data.match /^(\d+),(\d+)\0$/
-    raise PuzzleFormatError unless m
+    check { m }
     e.elapsed = m[1].to_i
     e.stopped = m[2] == "1"
   end
@@ -125,7 +136,7 @@ class AcrossLite
   def read_rtbl(e)
     rx = /(([\d ]\d):(\w+);)/
     m = e.data.match /^#{rx}*\0$/
-    raise PuzzleFormatError unless m
+    check { m }
     e.rebus = {}
     e.data.scan(rx).each {|_, k, v|
       e.rebus[k.to_i] = v
@@ -202,8 +213,92 @@ class AcrossLite
     c.scrambled = 0
     c
   end
+
+  # Text format
+  def read_text(filename)
+    s = IO.readlines(filename).map(&:strip)
+    # first line must be <ACROSS PUZZLE>
+    check { s.shift == "<ACROSS PUZZLE>" }
+    header, section = "START", []
+    s.each do |line|
+      if line =~ /^<(.*)>/
+        process_section header, section
+        header = $1
+        section = []
+      else
+        section << line
+      end
+    end
+  end
+
+  def process_section(header, section)
+    case header
+    when "START"
+      return
+    when "TITLE", "AUTHOR", "COPYRIGHT"
+      check { section.length == 1 }
+      xw[header.downcase] = section[0]
+    when "NOTEPAD"
+      xw.notes = section.join("\n")
+    when "SIZE"
+      check { section.length == 1 && section[0] =~ /^\d+x\d+/ }
+      xw.height, xw.width = section[0].split('x').map(&:to_i)
+    when "GRID"
+      check { xw.width && xw.height }
+      check { section.length == xw.height }
+      check { section.all? {|line| line.length == xw.width } }
+      xw.grid = section.join
+    when "REBUS"
+      check { section.length > 0 }
+      rebus = {}
+      # flag list (currently MARK or nothing)
+      xw.mark = section[0] == "MARK;"
+      section.shift if xw.mark
+      section.each do |line|
+        check { line =~ /^.+:.+:.$/ }
+        sym, long, short = line.split(':')
+        rebus[sym] = [long, short]
+      end
+    when "ACROSS", "DOWN"
+      xw.clues ||= []
+      xw.clues += section
+    else
+      puts header
+      raise PuzzleFormatError
+    end
+  end
+
+  def write_text
+    sections = [
+      ['TITLE', [xw.title]],
+      ['AUTHOR', [xw.author]],
+      ['COPYRIGHT', [xw.copyright]],
+      ['SIZE', ["#{xw.height}x#{xw.width}"]],
+      ['GRID', xw.grid.scan(/#{"."*xw.width}/)],
+      ['REBUS', write_text_rebus],
+      ['NOTEPAD', xw.notes.to_s.split("\n")]
+    ]
+    out = ["<ACROSS PUZZLE>"]
+    sections.each do |h, s|
+      next if s.empty?
+      out << "<#{h}>" 
+      s.each {|l| out << " #{l}"}
+    end
+    out.join("\n")
+  end
+
+  def write_text_rebus
+    e = get_extension("RTBL")
+    out = []
+    return out unless e
+    out << "MARK;" if xw.mark
+    e.rebus.each {|k, v|
+      out << "#{k}:#{v[0]}:#{v[1]}"
+    }
+    out
+  end
 end
 
 a = AcrossLite.new
-a.read_puz ARGV[0]
-print a.write_puz
+a.read_text ARGV[0]
+puts a.write_text
