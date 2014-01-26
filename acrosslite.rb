@@ -64,7 +64,7 @@ class AcrossLiteBinary
 
     # solution and fill = blocks of w*h bytes each
     size = xw.width * xw.height
-    xw.solution = s[h_end, size]
+    xw.solution = xw.unpack_solution s[h_end, size]
     xw.fill = s[h_end + size, size]
     s = s[h_end + 2 * size .. -1]
 
@@ -107,7 +107,7 @@ class AcrossLiteBinary
     strings = [xw.title, xw.author, xw.copyright] + xw.clues + [xw.notes]
     strings = strings.map {|x| x + "\0"}.join
 
-    [header, xw.solution, xw.fill, strings, extensions].map {|x|
+    [header, xw.pack_solution, xw.fill, strings, extensions].map {|x|
       x.force_encoding("ISO-8859-1")
     }.join
   end
@@ -177,7 +177,7 @@ class AcrossLiteBinary
 
   def global_checksum
     c = Checksum.new header_checksum
-    c.add_string xw.solution
+    c.add_string xw.pack_solution
     c.add_string xw.fill
     text_checksum c.sum
   end
@@ -187,7 +187,7 @@ class AcrossLiteBinary
     sums = [
       text_checksum(0),
       Checksum.of_string(xw.fill),
-      Checksum.of_string(xw.solution),
+      Checksum.of_string(xw.pack_solution),
       header_checksum
     ]
 
@@ -219,7 +219,7 @@ class AcrossLiteText
   end
 
   def read(data)
-    s = data.map(&:strip)
+    s = data.each_line.map(&:strip)
     # first line must be <ACROSS PUZZLE>
     check("Could not recognise Across Lite text file") { s.shift == "<ACROSS PUZZLE>" }
     header, section = "START", []
@@ -245,7 +245,7 @@ class AcrossLiteText
       ['AUTHOR', [xw.author]],
       ['COPYRIGHT', [xw.copyright]],
       ['SIZE', ["#{xw.height}x#{xw.width}"]],
-      ['GRID', xw.solution.scan(/#{"."*xw.width}/)],
+      ['GRID', xw.solution.map(&:join)],
       ['REBUS', write_text_rebus],
       ['ACROSS', xw.clues[0 ... n_across]],
       ['DOWN', xw.clues[n_across .. -1]],
@@ -278,7 +278,7 @@ class AcrossLiteText
       check { xw.width && xw.height }
       check { section.length == xw.height }
       check { section.all? {|line| line.length == xw.width } }
-      xw.solution = section.join
+      xw.solution = xw.unpack_solution section.join
     when "REBUS"
       check { section.length > 0 }
       rebus = {}
@@ -310,8 +310,3 @@ class AcrossLiteText
     out
   end
 end
-
-s = IO.read(ARGV[0])
-xw = AcrossLiteBinary.new.read(s)
-b = AcrossLiteBinary.new.write(xw)
-File.open(ARGV[1], 'w') {|f| f.write b}

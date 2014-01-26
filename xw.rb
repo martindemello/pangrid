@@ -17,7 +17,7 @@ class XWord < OpenStruct
 
   # Clue numbering
   def black?(x, y)
-    solution[y * width + x] == '.'
+    solution[y][x] == '.'
   end
 
   def border?(x, y)
@@ -42,5 +42,14 @@ class XWord < OpenStruct
       end
     end
     [across, down]
+  end
+
+  # pack/unpack a solution grid from a string of chars
+  def unpack_solution(s)
+    s.each_char.each_slice(width).to_a
+  end
+
+  def pack_solution
+    solution.flatten.join
   end
 end
