@@ -1,4 +1,5 @@
 require 'ostruct'
+require_relative 'xw'
 
 class PuzzleFormatError < Exception
 end
@@ -49,7 +50,7 @@ class AcrossLite
   TEXT_HEADINGS = %w( TITLE AUTHOR COPYRIGHT SIZE GRID REBUS ACROSS DOWN NOTEPAD )
 
   def initialize
-    @xw = OpenStruct.new
+    @xw = XWord.new
     @cs = OpenStruct.new
   end
 
@@ -270,7 +271,7 @@ class AcrossLite
   end
 
   def write_text
-    across, down = number
+    across, down = xw.number
     n_across = across.length
     sections = [
       ['TITLE', [xw.title]],
@@ -303,34 +304,6 @@ class AcrossLite
     out
   end
 
-  # Clue numbering
-  def black?(x, y)
-    xw.solution[y * xw.width + x] == '.'
-  end
-
-  def border?(x, y)
-    black?(x, y) || (x < 0) || (y < 0) || (x >= xw.width) || (y >= xw.height)
-  end
-
-  def across?(x, y)
-    border?(x - 1, y) && !border?(x, y) && !border?(x + 1, y)
-  end
-
-  def down?(x, y)
-    border?(x, y - 1) && !border?(x, y) && !border?(x, y + 1)
-  end
-
-  def number
-    n, across, down = 0, [], []
-    (0 ... xw.height).each do |y|
-      (0 ... xw.width).each do |x|
-        across << n if across? x, y
-        down << n if down? x, y
-        n += 1 if across.last == n || down.last == n
-      end
-    end
-    [across, down]
-  end
 end
 
 a = AcrossLite.new
