@@ -139,13 +139,13 @@ class AcrossLite
     check { m }
     e.rebus = {}
     e.data.scan(rx).each {|_, k, v|
-      e.rebus[k.to_i] = v
+      e.rebus[k.to_i] = [v, '-']
     }
   end
 
   def write_rtbl(e)
     e.rebus.keys.sort.map {|x|
-      x.to_s.rjust(2) + ":" + e.rebus[x] + ";"
+      x.to_s.rjust(2) + ":" + e.rebus[x][0] + ";"
     }.join + "\0"
   end
 
@@ -248,7 +248,7 @@ class AcrossLite
       check { xw.width && xw.height }
       check { section.length == xw.height }
       check { section.all? {|line| line.length == xw.width } }
-      xw.grid = section.join
+      xw.solution = section.join
     when "REBUS"
       check { section.length > 0 }
       rebus = {}
@@ -277,7 +277,7 @@ class AcrossLite
       ['AUTHOR', [xw.author]],
       ['COPYRIGHT', [xw.copyright]],
       ['SIZE', ["#{xw.height}x#{xw.width}"]],
-      ['GRID', xw.grid.scan(/#{"."*xw.width}/)],
+      ['GRID', xw.solution.scan(/#{"."*xw.width}/)],
       ['REBUS', write_text_rebus],
       ['ACROSS', xw.clues[0 ... n_across]],
       ['DOWN', xw.clues[n_across .. -1]],
@@ -305,7 +305,7 @@ class AcrossLite
 
   # Clue numbering
   def black?(x, y)
-    xw.grid[y * xw.width + x] == '.'
+    xw.solution[y * xw.width + x] == '.'
   end
 
   def border?(x, y)
@@ -334,5 +334,5 @@ class AcrossLite
 end
 
 a = AcrossLite.new
-a.read_text ARGV[0]
+a.read_puz ARGV[0]
 puts a.write_text
