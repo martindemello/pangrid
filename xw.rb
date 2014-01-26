@@ -1,6 +1,20 @@
 require 'ostruct'
 
+
+class PuzzleFormatError < Exception
+end
+
+def check(msg = "")
+  raise PuzzleFormatError, msg unless yield
+end
+
 class XWord < OpenStruct
+  # various extensions
+  def get_extension(s)
+    return nil unless extensions
+    extensions.find {|e| e.section == s}
+  end
+
   # Clue numbering
   def black?(x, y)
     solution[y * width + x] == '.'

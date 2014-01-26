@@ -1,14 +1,7 @@
 require 'ostruct'
 require_relative 'xw'
 
-class PuzzleFormatError < Exception
-end
-
-def check(msg = "")
-  raise PuzzleFormatError, msg unless yield
-end
-
-# CRC checksum
+# CRC checksum for binary format
 class Checksum
   attr_accessor :sum
 
@@ -38,7 +31,8 @@ class Checksum
   end
 end
 
-class AcrossLite
+# Binary format
+class AcrossLiteBinary
   # crossword, checksums
   attr_accessor :xw, :cs
 
@@ -47,16 +41,14 @@ class AcrossLite
   EXT_HEADER_FORMAT = "A4 v2"
   EXTENSIONS = %w(LTIM GRBS RTBL GEXT)
   FILE_MAGIC = "ACROSS&DOWN\0"
-  TEXT_HEADINGS = %w( TITLE AUTHOR COPYRIGHT SIZE GRID REBUS ACROSS DOWN NOTEPAD )
 
   def initialize
     @xw = XWord.new
     @cs = OpenStruct.new
   end
 
-  # binary format
-  def read_puz(filename)
-    s = IO.read(filename, :encoding => "ISO-8859-1")
+  def read(data)
+    s = data.force_encoding("ISO-8859-1")
 
     i = s.index(FILE_MAGIC)
     check("Could not recognise AcrossLite binary file") { i }
@@ -96,9 +88,12 @@ class AcrossLite
 
     # verify checksums
     check("Failed checksum") { checksums == cs }
+
+    xw
   end
 
-  def write_puz
+  def write(xw)
+    @xw = xw
     @cs = checksums
     h = [cs.global, FILE_MAGIC, cs.cib, cs.masked_low, cs.masked_high,
          xw.version + "\0", 0, cs.scrambled, "\0" * 12,
@@ -117,11 +112,7 @@ class AcrossLite
     }.join
   end
 
-  # various extensions
-  def get_extension(s)
-    return nil unless xw.extensions
-    xw.extensions.find {|e| e.section == s}
-  end
+  private
 
   def read_ltim(e)
     m = e.data.match /^(\d+),(\d+)\0$/
@@ -217,9 +208,18 @@ class AcrossLite
     c
   end
 
-  # Text format
-  def read_text(filename)
-    s = IO.readlines(filename).map(&:strip)
+end
+
+# Text format
+class AcrossLiteText
+  attr_accessor :xw
+
+  def initialize
+    @xw = XWord.new
+  end
+
+  def read(data)
+    s = data.map(&:strip)
     # first line must be <ACROSS PUZZLE>
     check("Could not recognise Across Lite text file") { s.shift == "<ACROSS PUZZLE>" }
     header, section = "START", []
@@ -233,7 +233,34 @@ class AcrossLite
       end
     end
     process_section header, section
+    xw
   end
+
+  def write(xw)
+    @xw = xw
+    across, down = xw.number
+    n_across = across.length
+    sections = [
+      ['TITLE', [xw.title]],
+      ['AUTHOR', [xw.author]],
+      ['COPYRIGHT', [xw.copyright]],
+      ['SIZE', ["#{xw.height}x#{xw.width}"]],
+      ['GRID', xw.solution.scan(/#{"."*xw.width}/)],
+      ['REBUS', write_text_rebus],
+      ['ACROSS', xw.clues[0 ... n_across]],
+      ['DOWN', xw.clues[n_across .. -1]],
+      ['NOTEPAD', xw.notes.to_s.split("\n")]
+    ]
+    out = ["<ACROSS PUZZLE>"]
+    sections.each do |h, s|
+      next if s.nil? || s.empty?
+      out << "<#{h}>"
+      s.each {|l| out << " #{l}"}
+    end
+    out.join("\n") + "\n"
+  end
+
+  private
 
   def process_section(header, section)
     case header
@@ -272,31 +299,8 @@ class AcrossLite
     end
   end
 
-  def write_text
-    across, down = xw.number
-    n_across = across.length
-    sections = [
-      ['TITLE', [xw.title]],
-      ['AUTHOR', [xw.author]],
-      ['COPYRIGHT', [xw.copyright]],
-      ['SIZE', ["#{xw.height}x#{xw.width}"]],
-      ['GRID', xw.solution.scan(/#{"."*xw.width}/)],
-      ['REBUS', write_text_rebus],
-      ['ACROSS', xw.clues[0 ... n_across]],
-      ['DOWN', xw.clues[n_across .. -1]],
-      ['NOTEPAD', xw.notes.to_s.split("\n")]
-    ]
-    out = ["<ACROSS PUZZLE>"]
-    sections.each do |h, s|
-      next if s.nil? || s.empty?
-      out << "<#{h}>"
-      s.each {|l| out << " #{l}"}
-    end
-    out.join("\n")
-  end
-
   def write_text_rebus
-    e = get_extension("RTBL")
+    e = xw.get_extension("RTBL")
     out = []
     return out unless e
     out << "MARK;" if xw.mark
@@ -305,9 +309,9 @@ class AcrossLite
     }
     out
   end
-
 end
 
-a = AcrossLite.new
-a.read_puz ARGV[0]
-puts a.write_text
+s = IO.read(ARGV[0])
+xw = AcrossLiteBinary.new.read(s)
+b = AcrossLiteBinary.new.write(xw)
+File.open(ARGV[1], 'w') {|f| f.write b}
