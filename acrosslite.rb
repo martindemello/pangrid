@@ -229,6 +229,7 @@ class AcrossLite
         section << line
       end
     end
+    process_section header, section
   end
 
   def process_section(header, section)
@@ -269,6 +270,8 @@ class AcrossLite
   end
 
   def write_text
+    across, down = number
+    n_across = across.length
     sections = [
       ['TITLE', [xw.title]],
       ['AUTHOR', [xw.author]],
@@ -276,11 +279,13 @@ class AcrossLite
       ['SIZE', ["#{xw.height}x#{xw.width}"]],
       ['GRID', xw.grid.scan(/#{"."*xw.width}/)],
       ['REBUS', write_text_rebus],
+      ['ACROSS', xw.clues[0 ... n_across]],
+      ['DOWN', xw.clues[n_across .. -1]],
       ['NOTEPAD', xw.notes.to_s.split("\n")]
     ]
     out = ["<ACROSS PUZZLE>"]
     sections.each do |h, s|
-      next if s.empty?
+      next if s.nil? || s.empty?
       out << "<#{h}>" 
       s.each {|l| out << " #{l}"}
     end
@@ -296,6 +301,35 @@ class AcrossLite
       out << "#{k}:#{v[0]}:#{v[1]}"
     }
     out
+  end
+
+  # Clue numbering
+  def black?(x, y)
+    xw.grid[y * xw.width + x] == '.'
+  end
+
+  def border?(x, y)
+    black?(x, y) || (x < 0) || (y < 0) || (x >= xw.width) || (y >= xw.height)
+  end
+
+  def across?(x, y)
+    border?(x - 1, y) && !border?(x, y) && !border?(x + 1, y)
+  end
+
+  def down?(x, y)
+    border?(x, y - 1) && !border?(x, y) && !border?(x, y + 1)
+  end
+
+  def number
+    n, across, down = 0, [], []
+    (0 ... xw.height).each do |y|
+      (0 ... xw.width).each do |x|
+        across << n if across? x, y
+        down << n if down? x, y
+        n += 1 if across.last == n || down.last == n
+      end
+    end
+    [across, down]
   end
 end
 
