@@ -4,8 +4,8 @@ require_relative 'xw'
 class PuzzleFormatError < Exception
 end
 
-def check
-  raise PuzzleFormatError unless yield
+def check(msg = "")
+  raise PuzzleFormatError, msg unless yield
 end
 
 # CRC checksum
@@ -59,7 +59,7 @@ class AcrossLite
     s = IO.read(filename, :encoding => "ISO-8859-1")
 
     i = s.index(FILE_MAGIC)
-    check { i } 
+    check("Could not recognise AcrossLite binary file") { i }
 
     # read the header
     h_start, h_end = i - 2, i - 2 + 0x34
@@ -85,7 +85,7 @@ class AcrossLite
     while (s.length > 8) do
       e = OpenStruct.new
       e.section, e.len, e.checksum = s.unpack(EXT_HEADER_FORMAT)
-      check { EXTENSIONS.include? e.section }
+      check("Unrecognised extension #{e.section}") { EXTENSIONS.include? e.section }
       size = 8 + e.len + 1
       break if s.length < size
       e.data = s[8 ... size]
@@ -95,7 +95,7 @@ class AcrossLite
     end
 
     # verify checksums
-    check { checksums == cs }
+    check("Failed checksum") { checksums == cs }
   end
 
   def write_puz
@@ -125,7 +125,7 @@ class AcrossLite
 
   def read_ltim(e)
     m = e.data.match /^(\d+),(\d+)\0$/
-    check { m }
+    check("Could not read extension LTIM") { m }
     e.elapsed = m[1].to_i
     e.stopped = m[2] == "1"
   end
@@ -137,7 +137,7 @@ class AcrossLite
   def read_rtbl(e)
     rx = /(([\d ]\d):(\w+);)/
     m = e.data.match /^#{rx}*\0$/
-    check { m }
+    check("Could not read extension RTBL") { m }
     e.rebus = {}
     e.data.scan(rx).each {|_, k, v|
       e.rebus[k.to_i] = [v, '-']
@@ -173,7 +173,9 @@ class AcrossLite
     c.add_string_0 xw.author
     c.add_string_0 xw.copyright
     xw.clues.each {|cl| c.add_string cl}
-    c.add_string_0 xw.notes
+    if (xw.version == '1.3')
+      c.add_string_0 xw.notes
+    end
     c.sum
   end
 
@@ -219,7 +221,7 @@ class AcrossLite
   def read_text(filename)
     s = IO.readlines(filename).map(&:strip)
     # first line must be <ACROSS PUZZLE>
-    check { s.shift == "<ACROSS PUZZLE>" }
+    check("Could not recognise Across Lite text file") { s.shift == "<ACROSS PUZZLE>" }
     header, section = "START", []
     s.each do |line|
       if line =~ /^<(.*)>/
@@ -287,7 +289,7 @@ class AcrossLite
     out = ["<ACROSS PUZZLE>"]
     sections.each do |h, s|
       next if s.nil? || s.empty?
-      out << "<#{h}>" 
+      out << "<#{h}>"
       s.each {|l| out << " #{l}"}
     end
     out.join("\n")
