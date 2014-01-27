@@ -89,6 +89,7 @@ class AcrossLiteBinary
     # verify checksums
     check("Failed checksum") { checksums == cs }
 
+    process_extensions
     xw
   end
 
@@ -113,6 +114,28 @@ class AcrossLiteBinary
   end
 
   private
+
+  def process_extensions
+    # record these for file inspection, though they're unlikely to be useful
+    if (ltim = xw.get_extension("LTIM"))
+      xw.time_elapsed = ltim.elapsed
+      xw.paused
+    end
+
+    # we need both grbs and rtbl
+    grbs, rtbl = xw.get_extension("GRBS"), xw.get_extension("RTBL")
+    if grbs and rtbl
+      grbs.grid.each_with_index do |n, i|
+        puts n if n > 0
+        p rtbl.rebus if n > 0
+        if n > 0 and (v = rtbl.rebus[n])
+          x, y = i % xw.width, i / xw.width
+          puts "[[[[ #{i} = #{x} #{y} : #{v} ]]]"
+          xw.solution[y][x] = v[0]
+        end
+      end
+    end
+  end
 
   def read_ltim(e)
     m = e.data.match /^(\d+),(\d+)\0$/
