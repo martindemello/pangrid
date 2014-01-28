@@ -31,6 +31,31 @@ class Checksum
   end
 end
 
+
+# String -> Cell[][]
+def unpack_solution(xw, s)
+  s.each_char.map {|c|
+    Cell.new(:solution => c == '.' ? :black : c)
+  }.each_slice(xw.width).to_a
+end
+
+# {xw | solution = Cell[][]} -> String
+def pack_solution(xw)
+  # acrosslite doesn't support non-rectangular grids, so map null squares to
+  # black too
+  xw.solution.flatten.map {|c|
+    s = c.solution
+    case s
+    when :black, :null
+      '.'
+    when String
+      (s.length == 1) ? s : (c.rebus_char || s[0])
+    else
+      raise PuzzleFormatError, "Unrecognised cell #{c}"
+    end
+  }.join
+end
+
 # Binary format
 class AcrossLiteBinary
   # crossword, checksums
@@ -64,7 +89,7 @@ class AcrossLiteBinary
 
     # solution and fill = blocks of w*h bytes each
     size = xw.width * xw.height
-    xw.solution = xw.unpack_solution s[h_end, size]
+    xw.solution = unpack_solution xw, s[h_end, size]
     xw.fill = s[h_end + size, size]
     s = s[h_end + 2 * size .. -1]
 
@@ -108,7 +133,7 @@ class AcrossLiteBinary
     strings = [xw.title, xw.author, xw.copyright] + xw.clues + [xw.notes]
     strings = strings.map {|x| x + "\0"}.join
 
-    [header, xw.pack_solution, xw.fill, strings, extensions].map {|x|
+    [header, pack_solution(xw), xw.fill, strings, extensions].map {|x|
       x.force_encoding("ISO-8859-1")
     }.join
   end
@@ -126,12 +151,11 @@ class AcrossLiteBinary
     grbs, rtbl = xw.get_extension("GRBS"), xw.get_extension("RTBL")
     if grbs and rtbl
       grbs.grid.each_with_index do |n, i|
-        puts n if n > 0
-        p rtbl.rebus if n > 0
         if n > 0 and (v = rtbl.rebus[n])
           x, y = i % xw.width, i / xw.width
-          puts "[[[[ #{i} = #{x} #{y} : #{v} ]]]"
-          xw.solution[y][x] = v[0]
+          cell = xw.solution[y][x]
+          cell.rebus_char = cell.solution[0]
+          cell.solution = v[0]
         end
       end
     end
@@ -200,7 +224,7 @@ class AcrossLiteBinary
 
   def global_checksum
     c = Checksum.new header_checksum
-    c.add_string xw.pack_solution
+    c.add_string pack_solution(xw)
     c.add_string xw.fill
     text_checksum c.sum
   end
@@ -210,7 +234,7 @@ class AcrossLiteBinary
     sums = [
       text_checksum(0),
       Checksum.of_string(xw.fill),
-      Checksum.of_string(xw.pack_solution),
+      Checksum.of_string(pack_solution(xw)),
       header_checksum
     ]
 
@@ -301,7 +325,7 @@ class AcrossLiteText
       check { xw.width && xw.height }
       check { section.length == xw.height }
       check { section.all? {|line| line.length == xw.width } }
-      xw.solution = xw.unpack_solution section.join
+      xw.solution = unpack_solution xw, section.join
     when "REBUS"
       check { section.length > 0 }
       rebus = {}
@@ -333,3 +357,6 @@ class AcrossLiteText
     out
   end
 end
+
+xw = AcrossLiteBinary.new.read(IO.read(ARGV[0]))
+print AcrossLiteBinary.new.write(xw)

@@ -8,6 +8,20 @@ def check(msg = "")
   raise PuzzleFormatError, msg unless yield
 end
 
+# solution = :black | :null | char | string
+# number = int
+# borders = [:left, :right, :top, :bottom]
+# rebus_char: optional character representation of a rebus square
+class Cell < OpenStruct
+  def black?
+    solution == :black
+  end
+
+  def has_bar?(s)
+    borders.include? s
+  end
+end
+
 class XWord < OpenStruct
   # various extensions
   def get_extension(s)
@@ -17,19 +31,19 @@ class XWord < OpenStruct
 
   # Clue numbering
   def black?(x, y)
-    solution[y][x] == '.'
+    solution[y][x].black?
   end
 
-  def border?(x, y)
+  def boundary?(x, y)
     black?(x, y) || (x < 0) || (y < 0) || (x >= width) || (y >= height)
   end
 
   def across?(x, y)
-    border?(x - 1, y) && !border?(x, y) && !border?(x + 1, y)
+    boundary?(x - 1, y) && !boundary?(x, y) && !boundary?(x + 1, y)
   end
 
   def down?(x, y)
-    border?(x, y - 1) && !border?(x, y) && !border?(x, y + 1)
+    boundary?(x, y - 1) && !boundary?(x, y) && !boundary?(x, y + 1)
   end
 
   def number
@@ -42,14 +56,5 @@ class XWord < OpenStruct
       end
     end
     [across, down]
-  end
-
-  # pack/unpack a solution grid from a string of chars
-  def unpack_solution(s)
-    s.each_char.each_slice(width).to_a
-  end
-
-  def pack_solution
-    solution.flatten.join
   end
 end
