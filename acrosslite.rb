@@ -49,7 +49,7 @@ def pack_solution(xw)
     when :black, :null
       '.'
     when String
-      (s.length == 1) ? s : (c.rebus_char || s[0])
+      c.rebus? ? (c.rebus_char || s[0]) : s
     else
       raise PuzzleFormatError, "Unrecognised cell #{c}"
     end
@@ -59,7 +59,7 @@ end
 # Binary format
 class AcrossLiteBinary
   # crossword, checksums
-  attr_accessor :xw, :cs
+  attr_accessor :xw, :cs, :extensions
 
   HEADER_FORMAT = "v A12 v V2 A4 v2 A12 c2 v3"
   HEADER_CHECKSUM_FORMAT = "c2 v3"
@@ -70,6 +70,7 @@ class AcrossLiteBinary
   def initialize
     @xw = XWord.new
     @cs = OpenStruct.new
+    @extensions = []
   end
 
   def read(data)
@@ -98,7 +99,6 @@ class AcrossLiteBinary
       s.split("\0", xw.n_clues + 5)
 
     # extensions: 8-byte header + len bytes data + \0
-    xw.extensions = []
     while (s.length > 8) do
       e = OpenStruct.new
       e.section, e.len, e.checksum = s.unpack(EXT_HEADER_FORMAT)
@@ -107,7 +107,7 @@ class AcrossLiteBinary
       break if s.length < size
       e.data = s[8 ... size]
       self.send(:"read_#{e.section.downcase}", e)
-      xw.extensions << e
+      extensions << e
       s = s[size .. -1]
     end
 
@@ -125,30 +125,30 @@ class AcrossLiteBinary
          xw.version + "\0", 0, cs.scrambled, "\0" * 12,
          xw.width, xw.height, xw.n_clues, xw.puzzle_type, xw.scrambled_state]
     header = h.pack(HEADER_FORMAT)
-    extensions = xw.extensions.map {|e|
-      [e.section, e.len, e.checksum].pack(EXT_HEADER_FORMAT) +
-        self.send(:"write_#{e.section.downcase}", e)
-    }.join
 
     strings = [xw.title, xw.author, xw.copyright] + xw.clues + [xw.notes]
     strings = strings.map {|x| x + "\0"}.join
 
-    [header, pack_solution(xw), xw.fill, strings, extensions].map {|x|
+    [header, pack_solution(xw), xw.fill, strings, write_extensions].map {|x|
       x.force_encoding("ISO-8859-1")
     }.join
   end
 
   private
+  def get_extension(s)
+    return nil unless xw.extensions
+    xw.extensions.find {|e| e.section == s}
+  end
 
   def process_extensions
     # record these for file inspection, though they're unlikely to be useful
-    if (ltim = xw.get_extension("LTIM"))
+    if (ltim = get_extension("LTIM"))
       xw.time_elapsed = ltim.elapsed
       xw.paused
     end
 
     # we need both grbs and rtbl
-    grbs, rtbl = xw.get_extension("GRBS"), xw.get_extension("RTBL")
+    grbs, rtbl = get_extension("GRBS"), get_extension("RTBL")
     if grbs and rtbl
       grbs.grid.each_with_index do |n, i|
         if n > 0 and (v = rtbl.rebus[n])
@@ -204,6 +204,13 @@ class AcrossLiteBinary
     e.grid.map {|x| x == 0 ? 0 : x + 1}.map(&:chr).join
   end
 
+  def write_extensions
+    extensions.map {|e|
+      [e.section, e.len, e.checksum].pack(EXT_HEADER_FORMAT) +
+        self.send(:"write_#{e.section.downcase}", e)
+    }.join
+  end
+
   # checksums
   def text_checksum(seed)
     c = Checksum.new(seed)
@@ -254,15 +261,15 @@ class AcrossLiteBinary
     c.scrambled = 0
     c
   end
-
 end
 
 # Text format
 class AcrossLiteText
-  attr_accessor :xw
+  attr_accessor :xw, :rebus
 
   def initialize
     @xw = XWord.new
+    @rebus = {}
   end
 
   def read(data)
@@ -287,13 +294,17 @@ class AcrossLiteText
     @xw = xw
     across, down = xw.number
     n_across = across.length
+
+    # scan the grid for rebus squares and replace them with lookup keys
+    extract_rebus
+
     sections = [
       ['TITLE', [xw.title]],
       ['AUTHOR', [xw.author]],
       ['COPYRIGHT', [xw.copyright]],
       ['SIZE', ["#{xw.height}x#{xw.width}"]],
-      ['GRID', xw.solution.map(&:join)],
-      ['REBUS', write_text_rebus],
+      ['GRID', write_grid],
+      ['REBUS', write_rebus],
       ['ACROSS', xw.clues[0 ... n_across]],
       ['DOWN', xw.clues[n_across .. -1]],
       ['NOTEPAD', xw.notes.to_s.split("\n")]
@@ -328,7 +339,6 @@ class AcrossLiteText
       xw.solution = unpack_solution xw, section.join
     when "REBUS"
       check { section.length > 0 }
-      rebus = {}
       # flag list (currently MARK or nothing)
       xw.mark = section[0] == "MARK;"
       section.shift if xw.mark
@@ -336,27 +346,51 @@ class AcrossLiteText
         check { line =~ /^.+:.+:.$/ }
         sym, long, short = line.split(':')
         rebus[sym] = [long, short]
+        xw.each_cell do |c|
+          if c.solution == sym
+            p c
+            c.solution = long
+            c.rebus_char = short
+          end
+        end
       end
     when "ACROSS", "DOWN"
       xw.clues ||= []
       xw.clues += section
     else
-      puts header
-      raise PuzzleFormatError
+      raise PuzzleFormatError, "Unrecognised header #{header}"
     end
   end
 
-  def write_text_rebus
-    e = xw.get_extension("RTBL")
+  def write_grid
+    pack_solution(xw).each_char.each_slice(xw.width).map(&:join)
+  end
+
+  def extract_rebus
+    k = 0
+    xw.each_cell do |c|
+      if c.rebus?
+        s = c.solution
+        unless rebus[s]
+          k += 1
+          rebus[s] = [k, c.rebus_char]
+        end
+        c.solution = k.to_s
+      end
+    end
+  end
+
+  def write_rebus
     out = []
-    return out unless e
     out << "MARK;" if xw.mark
-    e.rebus.each {|k, v|
-      out << "#{k}:#{v[0]}:#{v[1]}"
-    }
+    rebus.keys.sort.each do |long|
+      key, short = rebus[long]
+      out << "#{key}:#{long}:#{short}"
+    end
     out
   end
 end
 
-xw = AcrossLiteBinary.new.read(IO.read(ARGV[0]))
-print AcrossLiteBinary.new.write(xw)
+a = AcrossLiteBinary.new
+s = IO.read ARGV[0]
+print a.write(a.read s)

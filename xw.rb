@@ -20,15 +20,13 @@ class Cell < OpenStruct
   def has_bar?(s)
     borders.include? s
   end
+
+  def rebus?
+    solution.is_a?(String) && solution !~ /^[A-Z]$/
+  end
 end
 
 class XWord < OpenStruct
-  # various extensions
-  def get_extension(s)
-    return nil unless extensions
-    extensions.find {|e| e.section == s}
-  end
-
   # Clue numbering
   def black?(x, y)
     solution[y][x].black?
@@ -56,5 +54,13 @@ class XWord < OpenStruct
       end
     end
     [across, down]
+  end
+
+  def each_cell
+    (0 ... height).each do |y|
+      (0 ... width).each do |x|
+        yield solution[y][x]
+      end
+    end
   end
 end
