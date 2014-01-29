@@ -24,6 +24,10 @@ class Cell < OpenStruct
   def rebus?
     solution.is_a?(String) && solution !~ /^[A-Z]$/
   end
+
+  def to_char
+    rebus? ? (rebus_char || solution[0]) : solution
+  end
 end
 
 class XWord < OpenStruct
@@ -62,5 +66,23 @@ class XWord < OpenStruct
         yield solution[y][x]
       end
     end
+  end
+
+  # {:black => char, :null => char} -> Any[][]
+  def to_array(opts = {})
+    opts = {:black => '#', :null => ' '}.merge(opts)
+    solution.map {|row|
+      row.map {|c|
+        s = c.solution
+        case s
+        when :black, :null
+          opts[s]
+        when String
+          block_given? ? (yield c) : c.to_char
+        else
+          raise PuzzleFormatError, "Unrecognised cell #{c}"
+        end
+      }
+    }
   end
 end

@@ -1,6 +1,8 @@
 require 'ostruct'
 require_relative 'xw'
 
+GRID_CHARS = {:black => '.', :null => '.'}
+
 # CRC checksum for binary format
 class Checksum
   attr_accessor :sum
@@ -43,17 +45,7 @@ end
 def pack_solution(xw)
   # acrosslite doesn't support non-rectangular grids, so map null squares to
   # black too
-  xw.solution.flatten.map {|c|
-    s = c.solution
-    case s
-    when :black, :null
-      '.'
-    when String
-      c.rebus? ? (c.rebus_char || s[0]) : s
-    else
-      raise PuzzleFormatError, "Unrecognised cell #{c}"
-    end
-  }.join
+  xw.to_array(GRID_CHARS).map(&:join).join
 end
 
 # Binary format
@@ -348,7 +340,6 @@ class AcrossLiteText
         rebus[sym] = [long, short]
         xw.each_cell do |c|
           if c.solution == sym
-            p c
             c.solution = long
             c.rebus_char = short
           end
@@ -363,7 +354,7 @@ class AcrossLiteText
   end
 
   def write_grid
-    pack_solution(xw).each_char.each_slice(xw.width).map(&:join)
+    xw.to_array(GRID_CHARS).map(&:join)
   end
 
   def extract_rebus
@@ -390,7 +381,3 @@ class AcrossLiteText
     out
   end
 end
-
-a = AcrossLiteBinary.new
-s = IO.read ARGV[0]
-print a.write(a.read s)

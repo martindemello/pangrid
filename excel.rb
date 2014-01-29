@@ -1,0 +1,45 @@
+require_relative 'xw'
+require 'axlsx'
+
+# styles
+STYLES = {
+  :black => {:bg_color => "00"},
+  :white => {
+    :bg_color => "FF", :fg_color => "00",
+    :alignment => { :horizontal=> :center }
+  }
+}
+
+class XLSX
+  def write(xw)
+    rows = xw.to_array(:black => " ", :null => " ") {|c|
+      # We can insert the entire word for rebuses
+      c.solution
+    }
+
+    styles = xw.to_array(:black => :black, :null => :white) {
+      :white
+    }
+
+    p = Axlsx::Package.new
+    wb = p.workbook
+
+    # styles
+    wb.styles do |s|
+      xstyles = {}
+      STYLES.map {|k, v| xstyles[k] = s.add_style v}
+      wb.add_worksheet(:name => "Crossword") do |sheet|
+        rowstyles = styles.map {|r|
+          r.map {|c| xstyles[c]}
+        }
+        rows.zip(rowstyles).each {|r, s|
+          sheet.add_row r, :style => s
+        }
+      end
+    end
+
+    out = p.to_stream(true)
+    check("Spreadsheet did not validate") { out }
+    out.read
+  end
+end
