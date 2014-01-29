@@ -6,7 +6,8 @@ STYLES = {
   :black => {:bg_color => "00"},
   :white => {
     :bg_color => "FF", :fg_color => "00",
-    :alignment => { :horizontal=> :center }
+    :alignment => { :horizontal=> :center },
+    :border => Axlsx::STYLE_THIN_BORDER
   }
 }
 

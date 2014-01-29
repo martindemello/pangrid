@@ -128,8 +128,8 @@ class AcrossLiteBinary
 
   private
   def get_extension(s)
-    return nil unless xw.extensions
-    xw.extensions.find {|e| e.section == s}
+    return nil unless extensions
+    extensions.find {|e| e.section == s}
   end
 
   def process_extensions
