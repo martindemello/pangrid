@@ -1,3 +1,11 @@
+# Write puzzles out in Excel's .xslx format
+#
+# Useful primarily for importing a grid into a google spreadsheet for online,
+# collaborative solving
+#
+# provides:
+#   XLSX : write
+
 require_relative 'xw'
 require 'axlsx'
 

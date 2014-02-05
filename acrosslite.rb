@@ -1,3 +1,12 @@
+# AcrossLite is a file format used by the New York Times to distribute crosswords.
+#
+# Binary format: http://code.google.com/p/puz/
+# Text format: http://www.litsoft.com/across/docs/AcrossTextFormat.pdf
+#
+# provides:
+#   AcrossLiteBinary : read, write
+#   AcrossLiteText : read, write
+
 require 'ostruct'
 require_relative 'xw'
 
