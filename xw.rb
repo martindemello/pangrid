@@ -54,7 +54,10 @@ class XWord < OpenStruct
       (0 ... width).each do |x|
         across << n if across? x, y
         down << n if down? x, y
-        n += 1 if across.last == n || down.last == n
+        if across.last == n || down.last == n
+          solution[y][x].number = n
+          n += 1
+        end
       end
     end
     [across, down]
