@@ -58,7 +58,7 @@ def pack_solution(xw)
 end
 
 # Binary format
-class AcrossLiteBinary
+class AcrossLiteBinary < Plugin
   # crossword, checksums
   attr_accessor :xw, :cs, :extensions
 
@@ -265,7 +265,7 @@ class AcrossLiteBinary
 end
 
 # Text format
-class AcrossLiteText
+class AcrossLiteText < Plugin
   attr_accessor :xw, :rebus
 
   def initialize

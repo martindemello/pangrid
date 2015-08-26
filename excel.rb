@@ -4,7 +4,7 @@
 # collaborative solving
 #
 # provides:
-#   XLSX : write
+#   ExcelXSLX : write
 
 require_relative 'xw'
 require 'axlsx'
@@ -26,7 +26,7 @@ def format_number(n)
   n.to_s.split(//).map {|c| SUPERSCRIPTS[c.to_i]}.join("").rjust(3)
 end
 
-class XLSX
+class ExcelXSLX < Plugin
   def write(xw)
     xw.number
     rows = xw.to_array(:black => " ", :null => " ") {|c|
