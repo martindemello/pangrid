@@ -11,7 +11,13 @@ end
 # number = int
 # borders = [:left, :right, :top, :bottom]
 # rebus_char: optional character representation of a rebus square
-class Cell < OpenStruct
+class Cell
+  attr_accessor :solution, :number, :borders, :rebus_char
+
+  def initialize(**args)
+    args.each {|k,v| self.send :"#{k}=", v}
+  end
+
   def black?
     solution == :black
   end
