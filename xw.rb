@@ -52,7 +52,7 @@ class XWord < OpenStruct
   end
 
   def number
-    n, across, down = 0, [], []
+    n, across, down = 1, [], []
     (0 ... height).each do |y|
       (0 ... width).each do |x|
         across << n if across? x, y
