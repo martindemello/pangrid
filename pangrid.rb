@@ -23,6 +23,8 @@ if opts[:list]
   exit
 end
 
+# run the converter
+#
 from = Plugin.get(opts[:from])
 to = Plugin.get(opts[:to])
 
