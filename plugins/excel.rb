@@ -6,7 +6,7 @@
 # provides:
 #   ExcelXSLX : write
 
-require_relative 'xw'
+require_relative '../xw'
 require 'axlsx'
 
 # styles

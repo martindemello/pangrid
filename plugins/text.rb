@@ -6,7 +6,7 @@
 # provides:
 #   Text : write
 
-require_relative 'xw'
+require_relative '../xw'
 
 class Text < Plugin
   def write(xw)

@@ -8,7 +8,7 @@
 #   AcrossLiteText : read, write
 
 require 'ostruct'
-require_relative 'xw'
+require_relative '../xw'
 
 GRID_CHARS = {:black => '.', :null => '.'}
 
