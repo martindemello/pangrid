@@ -1,6 +1,6 @@
 require 'ostruct'
 
-class PuzzleFormatError < Exception
+class PuzzleFormatError < StandardError
 end
 
 def check(msg = "")

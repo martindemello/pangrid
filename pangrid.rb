@@ -14,12 +14,7 @@ opts = Trollop::options do
 end
 
 if opts[:list]
-  puts "Plugins available:"
-  puts "----------------------------------------"
   Plugin.list_all
-  puts
-  puts "Plugin failures:"
-  puts Plugin::FAILED.map {|i| "  " + i}
   exit
 end
 

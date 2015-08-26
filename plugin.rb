@@ -1,3 +1,29 @@
+class PluginDependencyError < StandardError
+  attr_accessor :name, :gems
+
+  def initialize(name, gems)
+    @name, @gems = name, gems
+  end
+end
+
+# Load all the gem dependencies of a plugin
+def require_for_plugin(name, gems)
+  missing = []
+  gems.each do |gem|
+    begin
+      require gem
+    rescue LoadError => e
+      # If requiring a gem raises something other than LoadError let it
+      # propagate upwards.
+      missing << gem
+    end
+  end
+  if !missing.empty?
+    raise PluginDependencyError.new(name, missing)
+  end
+end
+
+# utility functions
 def to_hyphen(str)
   str.gsub(/([A-Z]+)([A-Z][a-z])/,'\1-\2').
     gsub(/([a-z\d])([A-Z])/,'\1-\2').
@@ -7,6 +33,7 @@ end
 class Plugin
   REGISTRY = {}
   FAILED = []
+  MISSING_DEPS = {}
 
   def self.inherited(subclass)
     name = to_hyphen(subclass.name)
@@ -19,19 +46,46 @@ class Plugin
     FAILED.clear
     plugins = Dir.glob(File.dirname(__FILE__) + "/plugins/*.rb")
     plugins.each do |f|
-      begin
-        require f
-      rescue StandardError, LoadError => e
-        FAILED << "Could not load #{File.basename(f)}: #{e}"
-      end
+      load_plugin f
+    end
+  end
+
+  def self.load_plugin(filename)
+    begin
+      require filename
+    rescue PluginDependencyError => e
+      MISSING_DEPS[e.name] = e.gems
+    rescue StandardError => e
+      FAILED << "#{File.basename(filename)}: #{e}"
     end
   end
 
   def self.list_all
+    puts "-------------------------------------------------------"
+    puts "Available plugins:"
+    puts "-------------------------------------------------------"
     REGISTRY.keys.sort.each do |name|
       plugin = REGISTRY[name]
       provides = [:read, :write].select {|m| plugin.method_defined? m}
-      puts name + ": " + provides.join(", ")
+      provides = provides.map {|m| {read: 'from', write: 'to'}[m]}
+      puts "  " + name + " [" + provides.join(", ") + "]"
+    end
+    if !MISSING_DEPS.empty?
+      puts
+      puts "-------------------------------------------------------"
+      puts "Missing dependencies for plugins:"
+      puts "-------------------------------------------------------"
+      MISSING_DEPS.keys.sort.each do |name|
+        puts "  " + name + ": gem install " + MISSING_DEPS[name].join(" ")
+      end
+    end
+    if !FAILED.empty?
+      puts
+      puts "The following plugins could not load due to errors:"
+      puts "-------------------------------------------------------"
+      FAILED.each do |error|
+        puts "  " + error
+      end
     end
   end
 

@@ -7,7 +7,8 @@
 #   ExcelXSLX : write
 
 require_relative '../xw'
-require 'axlsx'
+
+require_for_plugin 'excel', ['axlsx']
 
 # styles
 STYLES = {
