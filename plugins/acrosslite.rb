@@ -57,6 +57,14 @@ def pack_solution(xw)
   xw.to_array(GRID_CHARS).map(&:join).join
 end
 
+# {xw | solution = Cell[][]} -> String
+def empty_fill(xw)
+  # when converting from another format -> binary we won't typically have fill
+  # information, since that is an internal property of the acrosslite player
+  grid = xw.to_array(GRID_CHARS) {|c| '-'}
+  grid.map(&:join).join
+end
+
 # Binary format
 class AcrossLiteBinary < Plugin
   # crossword, checksums
@@ -120,8 +128,16 @@ class AcrossLiteBinary < Plugin
   end
 
   def write(xw)
+    # fill in some fields that might not be present
+    xw.n_clues = xw.clues.length
+    xw.fill ||= empty_fill(xw)
+    xw.puzzle_type ||= 1
+    xw.scrambled_state ||= 0
+    xw.version ||= "1.3"
+
     @xw = xw
     @cs = checksums
+
     h = [cs.global, FILE_MAGIC, cs.cib, cs.masked_low, cs.masked_high,
          xw.version + "\0", 0, cs.scrambled, "\0" * 12,
          xw.width, xw.height, xw.n_clues, xw.puzzle_type, xw.scrambled_state]
