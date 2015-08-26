@@ -34,4 +34,8 @@ class Plugin
       puts name + ": " + provides.join(", ")
     end
   end
+
+  def self.get(name)
+    REGISTRY[name]
+  end
 end
