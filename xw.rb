@@ -1,6 +1,5 @@
 require 'ostruct'
 
-
 class PuzzleFormatError < Exception
 end
 
@@ -28,6 +27,10 @@ class Cell < OpenStruct
   def to_char
     rebus? ? (rebus_char || solution[0]) : solution
   end
+
+  def inspect
+    black? ? '#' : to_char
+  end
 end
 
 class XWord < OpenStruct
@@ -37,7 +40,7 @@ class XWord < OpenStruct
   end
 
   def boundary?(x, y)
-    black?(x, y) || (x < 0) || (y < 0) || (x >= width) || (y >= height)
+    (x < 0) || (y < 0) || (x >= width) || (y >= height) || black?(x, y)
   end
 
   def across?(x, y)
