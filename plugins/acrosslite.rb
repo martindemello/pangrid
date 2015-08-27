@@ -124,19 +124,22 @@ class AcrossLiteBinary < Plugin
     check("Failed checksum") { checksums == cs }
 
     process_extensions
+    process_clues
+
     xw
   end
 
   def write(xw)
+    @xw = xw
+    @cs = checksums
+
     # fill in some fields that might not be present
+    combine_clues
     xw.n_clues = xw.clues.length
     xw.fill ||= empty_fill(xw)
     xw.puzzle_type ||= 1
     xw.scrambled_state ||= 0
     xw.version ||= "1.3"
-
-    @xw = xw
-    @cs = checksums
 
     h = [cs.global, FILE_MAGIC, cs.cib, cs.masked_low, cs.masked_high,
          xw.version + "\0", 0, cs.scrambled, "\0" * 12,
@@ -152,6 +155,40 @@ class AcrossLiteBinary < Plugin
   end
 
   private
+  # sort incoming clues in xw.clues -> across and down
+  def process_clues
+    across, down = xw.number
+    clues = across.map {|x| [x, :a]} + down.map {|x| [x, :d]}
+    clues.sort!
+    xw.across_clues = []
+    xw.down_clues = []
+    clues.zip(xw.clues).each do |(n, dir), clue|
+      if dir == :a
+        xw.across_clues << clue
+      else
+        xw.down_clues << clue
+      end
+    end
+  end
+
+  # combine across and down clues -> xw.clues
+  def combine_clues
+    across, down = xw.number
+    clues = across.map {|x| [x, :a]} + down.map {|x| [x, :d]}
+    clues.sort!
+    ac, dn = xw.across_clues.dup, xw.down_clues.dup
+    xw.clues = []
+    clues.each do |n, dir|
+      if dir == :a
+        xw.clues << ac.shift
+      else
+        xw.clues << dn.shift
+      end
+    end
+    check("Extra across clue") { ac.empty? }
+    check("Extra down clue") { dn.empty? }
+  end
+
   def get_extension(s)
     return nil unless extensions
     extensions.find {|e| e.section == s}
@@ -309,8 +346,6 @@ class AcrossLiteText < Plugin
 
   def write(xw)
     @xw = xw
-    across, down = xw.number
-    n_across = across.length
 
     # scan the grid for rebus squares and replace them with lookup keys
     extract_rebus
@@ -322,8 +357,8 @@ class AcrossLiteText < Plugin
       ['SIZE', ["#{xw.height}x#{xw.width}"]],
       ['GRID', write_grid],
       ['REBUS', write_rebus],
-      ['ACROSS', xw.clues[0 ... n_across]],
-      ['DOWN', xw.clues[n_across .. -1]],
+      ['ACROSS', xw.across_clues],
+      ['DOWN', xw.down_clues],
       ['NOTEPAD', xw.notes.to_s.split("\n")]
     ]
     out = ["<ACROSS PUZZLE>"]
@@ -370,9 +405,10 @@ class AcrossLiteText < Plugin
           end
         end
       end
-    when "ACROSS", "DOWN"
-      xw.clues ||= []
-      xw.clues += section
+    when "ACROSS"
+      xw.across_clues = section
+    when "DOWN"
+      xw.down_clues = section
     else
       raise PuzzleFormatError, "Unrecognised header #{header}"
     end

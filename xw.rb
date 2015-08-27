@@ -39,6 +39,10 @@ class Cell
   end
 end
 
+# solution = Cell[][]
+# width, height = int
+# across_clues = string[]
+# down_clues = string[]
 class XWord < OpenStruct
   # Clue numbering
   def black?(x, y)
