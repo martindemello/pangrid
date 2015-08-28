@@ -1,4 +1,4 @@
-require 'trollop'
+require_relative 'lib/trollop'
 
 require_relative 'plugin'
 
