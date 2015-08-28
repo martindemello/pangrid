@@ -24,8 +24,9 @@ def require_for_plugin(name, gems)
 end
 
 # utility functions
-def to_hyphen(str)
-  str.gsub(/([A-Z]+)([A-Z][a-z])/,'\1-\2').
+def class_to_name(str)
+  str.gsub(/.*:/, '').
+    gsub(/([A-Z]+)([A-Z][a-z])/,'\1-\2').
     gsub(/([a-z\d])([A-Z])/,'\1-\2').
     downcase
 end
@@ -36,7 +37,7 @@ class Plugin
   MISSING_DEPS = {}
 
   def self.inherited(subclass)
-    name = to_hyphen(subclass.name)
+    name = class_to_name(subclass.name)
     #puts "Registered #{subclass} as #{name}"
     REGISTRY[name] = subclass
   end

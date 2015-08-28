@@ -124,7 +124,7 @@ class AcrossLiteBinary < Plugin
     check("Failed checksum") { checksums == cs }
 
     process_extensions
-    process_clues
+    unpack_clues
 
     xw
   end
@@ -134,7 +134,7 @@ class AcrossLiteBinary < Plugin
     @cs = checksums
 
     # fill in some fields that might not be present
-    combine_clues
+    pack_clues
     xw.n_clues = xw.clues.length
     xw.fill ||= empty_fill(xw)
     xw.puzzle_type ||= 1
@@ -156,7 +156,7 @@ class AcrossLiteBinary < Plugin
 
   private
   # sort incoming clues in xw.clues -> across and down
-  def process_clues
+  def unpack_clues
     across, down = xw.number
     clues = across.map {|x| [x, :a]} + down.map {|x| [x, :d]}
     clues.sort!
@@ -172,7 +172,7 @@ class AcrossLiteBinary < Plugin
   end
 
   # combine across and down clues -> xw.clues
-  def combine_clues
+  def pack_clues
     across, down = xw.number
     clues = across.map {|x| [x, :a]} + down.map {|x| [x, :d]}
     clues.sort!
