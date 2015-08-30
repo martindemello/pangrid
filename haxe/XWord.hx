@@ -5,7 +5,7 @@ enum Cell {
   Rebus(s: String, c: String);
 }
 
-class Border {
+typedef Border = {
   var left : Bool;
   var right : Bool;
   var top : Bool;
@@ -15,6 +15,7 @@ class Border {
 class Square {
   public var contents : Cell;
   public var border : Border;
+  public var number : Int;
 
   public function new(cell) {
     this.contents = cell;
@@ -41,10 +42,18 @@ class Square {
   }
 }
 
+typedef Strings = Array<String>;
+typedef Array2D<T> = Array<Array<T>>;
+typedef Grid = Array2D<Square>;
+
+typedef ClueNumbers = { across : Array<Int>, down : Array<Int> }
+
+typedef Clues = { across : Strings, down : Strings }
+
 class XWord {
   var height : Int;
   var width : Int;
-  var grid : Array< Array<Square> >;
+  var grid : Grid;
 
   public function new(h: Int, w: Int) {
     this.height = h;
@@ -52,17 +61,79 @@ class XWord {
     this.grid = [for (y in 0 ... h) [for (x in 0 ... w) new Square(Empty)]];
   }
 
+  public function map<T>(f : Square -> T) : Array2D<T> {
+    return [for (y in 0 ... height)
+      [for (x in 0 ... width)
+        f(grid[y][x])]];
+  }
+
   public function inspect() {
-    for (y in 0 ... this.height) {
-      for (x in 0 ... this.width) {
+    for (y in 0 ... height) {
+      for (x in 0 ... width) {
         Sys.print(grid[y][x].toString());
       }
       Sys.println("");
     }
   }
 
+  // Clue numbering
+  function black(x: Int, y: Int) : Bool {
+    return grid[y][x].black();
+  }
+
+  function boundary(x: Int, y: Int) : Bool {
+    return (x < 0) || (y < 0) ||
+      (x >= width) || (x >= height) ||
+      black(x, y);
+  }
+
+  function across(x: Int, y: Int) : Bool {
+    return boundary(x - 1, y) && !boundary(x, y) && !boundary(x + 1, y);
+  }
+
+  function down(x: Int, y: Int) : Bool {
+    return boundary(x, y - 1) && !boundary(x, y) && !boundary(x, y + 1);
+  }
+
+  function number() : ClueNumbers {
+    var n = 1;
+    var ac = [];
+    var dn = [];
+    for (y in (0 ... height)) {
+      for (x in (0 ... width)) {
+        var added = false;
+        if (across(x, y)) {
+          ac.push(n);
+          added = true;
+        }
+        if (down(x, y)) {
+          dn.push(n);
+          added = true;
+        }
+        if (added) {
+          grid[y][x].number = n;
+          n++;
+        }
+      }
+    }
+    return { across: ac, down: dn };
+  }
+
   static public function main():Void {
     var a = new XWord(8, 5);
     a.inspect();
+    var nums = a.number();
+    var out = a.map(function(s) {
+      var n = (s.number > 0) ? "" + s.number : "";
+      return StringTools.lpad(n, " ", 2) + s.toString();
+    });
+
+    for (row in out) {
+      for (c in row) {
+        Sys.print(c);
+      }
+      Sys.println("");
+    }
+    Sys.println(nums);
   }
 }
