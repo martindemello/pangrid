@@ -40,6 +40,22 @@ class Square {
       case Rebus(s, c): s;
     }
   }
+
+  public function setFromString(c : String,
+      opts : {black: String, empty: String, rebus: Bool}) {
+    if (c == opts.black) {
+      this.contents = Black;
+    } else if (c == opts.empty || c == '') {
+      this.contents = Empty;
+    } else if (c.length > 1 && opts.rebus) {
+      this.contents = Rebus(c, c.charAt(0));
+    } else {
+      // If we have multiple chars but opts.rebus = false, strip off non-alpha
+      // chars first, then take the first remaining one.
+      var clean = ~/[^A-Za-z]/g.replace(c, '');
+      this.contents = Letter(clean.charAt(0));
+    }
+  }
 }
 
 typedef Strings = Array<String>;
@@ -51,14 +67,16 @@ typedef ClueNumbers = { across : Array<Int>, down : Array<Int> }
 typedef Clues = { across : Strings, down : Strings }
 
 class XWord {
-  var height : Int;
-  var width : Int;
-  var grid : Grid;
+  public var height : Int;
+  public var width : Int;
+  public var grid : Grid;
+  public var clues: Clues;
 
   public function new(h: Int, w: Int) {
     this.height = h;
     this.width = w;
     this.grid = [for (y in 0 ... h) [for (x in 0 ... w) new Square(Empty)]];
+    this.clues = { across : [], down : [] };
   }
 
   public function map<T>(f : Square -> T) : Array2D<T> {
@@ -83,7 +101,7 @@ class XWord {
 
   function boundary(x: Int, y: Int) : Bool {
     return (x < 0) || (y < 0) ||
-      (x >= width) || (x >= height) ||
+      (x >= width) || (y >= height) ||
       black(x, y);
   }
 
@@ -95,7 +113,7 @@ class XWord {
     return boundary(x, y - 1) && !boundary(x, y) && !boundary(x, y + 1);
   }
 
-  function number() : ClueNumbers {
+  public function number() : ClueNumbers {
     var n = 1;
     var ac = [];
     var dn = [];
