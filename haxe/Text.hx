@@ -1,6 +1,6 @@
 using StringTools;
 
-class Text {
+class Text implements Converter.XwWriter {
   public function new() { }
 
   public function write(xw : XWord) : String {
