@@ -1,3 +1,5 @@
+import Types;
+
 enum Cell {
   Black;
   Empty;
@@ -11,6 +13,12 @@ typedef Border = {
   var top : Bool;
   var bottom : Bool;
 }
+
+typedef SquareOpts = {
+  var black: String;
+  var empty: String;
+  @:optional var rebus: Bool;
+};
 
 class Square {
   public var contents : Cell;
@@ -41,8 +49,7 @@ class Square {
     }
   }
 
-  public function setFromString(c : String,
-      opts : {black: String, empty: String, rebus: Bool}) {
+  public function setFromString(c : String, opts : SquareOpts) {
     if (c == opts.black) {
       this.contents = Black;
     } else if (c == opts.empty || c == '') {
@@ -58,8 +65,6 @@ class Square {
   }
 }
 
-typedef Strings = Array<String>;
-typedef Array2D<T> = Array<Array<T>>;
 typedef Grid = Array2D<Square>;
 
 typedef ClueNumbers = { across : Array<Int>, down : Array<Int> }
@@ -83,6 +88,17 @@ class XWord {
     return [for (y in 0 ... height)
       [for (x in 0 ... width)
         f(grid[y][x])]];
+  }
+  
+  public function toArray(opts: SquareOpts, f : Square -> String) : Array2D<String> {
+    return map(function(square) {
+      return switch square.contents {
+        case Black: opts.black;
+        case Empty: opts.empty;
+        case Letter(c): f(square);
+        case Rebus(s, c): f(square);
+      }
+    });
   }
 
   public function inspect() {

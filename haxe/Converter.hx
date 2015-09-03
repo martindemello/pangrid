@@ -17,7 +17,8 @@ class Converter {
   ];
 
   static var writers : Factory<XwWriter> = [
-    "text" => function() { return new Text(); }
+    "text" => function() { return new Text(); },
+    "reddit" => function() { return new Reddit(); }
   ];
 
   static function get<T>(name: String, factory: Factory<T>) : T {
@@ -34,6 +35,12 @@ class Converter {
 
   static function getWriter(name: String) {
     return get(name, writers);
+  }
+
+  public static function list() {
+    var r = [for (k in readers.keys()) k]; 
+    var w = [for (k in writers.keys()) k];
+    return { readers: r, writers: w };
   }
 
   public static function create(reader: String, writer: String) : Converter {

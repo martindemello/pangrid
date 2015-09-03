@@ -1,3 +1,5 @@
+using ArrayFormatter;
+
 typedef CmdOpts = {
   var f: String;
   var t: String;
@@ -41,10 +43,17 @@ class CLI {
   
   static public function main():Void {
     var a = sys.io.File.getContent("crossword.csv");
-    var c = Converter.create("csv", "text");
+    var c = Converter.create("csv", "reddit");
     trace(c.convert(a));
     var cli = new CLI();
     var opts = cli.parseArgs();
     trace(opts);
+    if (opts.l) {
+      var list = Converter.list();
+      Sys.println("Available readers:");
+      Sys.println(list.readers.indent(2).toLines());
+      Sys.println("Available writers:");
+      Sys.print(list.writers.indent(2).toLines());
+    }
   }
 }
