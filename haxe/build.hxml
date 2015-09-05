@@ -5,5 +5,5 @@
 
 --next
 
--main CLI
+-main pangrid.CLI
 -neko cli.n

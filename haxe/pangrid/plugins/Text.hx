@@ -1,4 +1,8 @@
-using ArrayFormatter;
+package pangrid.plugins;
+
+using pangrid.lib.ArrayFormatter;
+import pangrid.lib.Converter;
+import pangrid.lib.XWord;
 
 class Text implements Converter.XwWriter {
   public function new() { }

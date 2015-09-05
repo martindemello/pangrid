@@ -1,4 +1,8 @@
+package pangrid.plugins;
+
 import format.csv.Reader;
+import pangrid.lib.Converter;
+import pangrid.lib.XWord;
 
 class CSV implements Converter.XwReader {
   public function read(data : String) : XWord {

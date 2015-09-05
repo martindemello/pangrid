@@ -1,7 +1,7 @@
+package pangrid.lib;
+
 using StringTools;
-
-import Types;
-
+import pangrid.lib.Types;
 
 class ArrayFormatter {
   public static function indent(xs: Strings, n: Int) : Strings {

@@ -1,4 +1,6 @@
-import Types;
+package pangrid.lib;
+
+import pangrid.lib.Types;
 
 enum Cell {
   Black;

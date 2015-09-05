@@ -1,3 +1,9 @@
+package pangrid.lib;
+
+import pangrid.plugins.CSV;
+import pangrid.plugins.Text;
+import pangrid.plugins.Reddit;
+
 interface XwReader {
   public function read(data : String) : XWord;
 }

@@ -1,4 +1,7 @@
-using ArrayFormatter;
+package pangrid;
+
+using pangrid.lib.ArrayFormatter;
+import pangrid.lib.Converter;
 
 typedef CmdOpts = {
   var f: String;

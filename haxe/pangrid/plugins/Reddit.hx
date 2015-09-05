@@ -1,5 +1,9 @@
+package pangrid.plugins;
+
 using StringTools;
-using ArrayFormatter;
+using pangrid.lib.ArrayFormatter;
+import pangrid.lib.Converter;
+import pangrid.lib.XWord;
 
 class Reddit implements Converter.XwWriter {
   public function new() { }
