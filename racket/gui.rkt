@@ -28,6 +28,7 @@
      [rows 15]
      [cols 15]
      [cursor (pt 1 1)]
+     [dir 'across]
      [scale 30]
      [pad 30]
      [height 600]
@@ -116,10 +117,81 @@
         (set! cursor pos)
         (refresh)))
 
+    (define/private (get-grid-cell pos)
+      (square-cell (grid-get grid (pt-x pos) (pt-y pos))))
+
+    (define/private (toggle-black! x y cell)
+      (match cell
+        ['black (grid-set-cell! grid x y 'empty)]
+        ['empty (grid-set-cell! grid x y 'black)]
+        [_ (void)])
+      (renumber! grid)
+      (refresh))
+
+    (define/private (toggle-dir!)
+      (set! dir (if (= dir 'across) 'down 'across)))
+
+    (define/private (delta dir)
+      (match dir
+        ['across (pt 1 0)]
+        ['down (pt 0 1)]
+        ['left (pt -1 0)]
+        ['right (pt 1 0)]
+        ['up (pt 0 -1)]
+        ['down (pt 0 1)]))
+
+    (define/private (wrap-pos pos)
+      (pt (modulo (pt-x pos) cols)
+          (modulo (pt-y pos) rows)))
+
+    (define/private (clip-pos pos)
+      (pt (clip (pt-x pos) 0 (-- cols))
+          (clip (pt-y pos) 0 (-- rows))))
+
+    (define/private (move-cursor-wrap! delta)
+      (set! cursor (wrap-pos (+ cursor delta))))
+
+    (define/private (move-cursor-clip! delta)
+      (set! cursor (clip-pos (+ cursor delta))))
+
+    (define/private (delete-cell! x y cell)
+      (unless (equal? 'black cell)
+        (grid-set-cell! grid x y 'empty))
+      (refresh))
+
+    (define/private (backspace! x y cell)
+      (delete-cell! x y cell)
+      (move-cursor-clip! (- (delta dir)))
+      (refresh))
+
+    (define/private (move-cursor! d)
+      (move-cursor-wrap! (delta d))
+      (refresh))
+
+    (define/private (set-cell! x y cell c)
+      (unless (equal? 'black cell)
+        (grid-set-cell! grid x y (letter c)))
+      (move-cursor-clip! (delta dir))
+      (refresh))
+
     (define/override (on-event event)
       (match (send event get-event-type)
         ['left-down (handle-click event)]
         [_ #t]))
+
+    (define/override (on-char event)
+      (let ([keycode (send event get-key-code)]
+            [x (pt-x cursor)]
+            [y (pt-y cursor)]
+            [cell (get-grid-cell cursor)])
+        (match keycode
+          [(or 'left 'right 'up 'down) (move-cursor! keycode)]
+          [#\space (toggle-black! x y cell)]
+          [#\rubout (delete-cell! x y cell)]
+          [#\backspace (backspace! x y cell)]
+          [#\tab (toggle-dir!)]
+          [(? char? c) (set-cell! x y cell c)]
+          [_ (void)])))
 
     (super-new
      [parent parent]
