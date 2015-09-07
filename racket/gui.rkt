@@ -15,6 +15,20 @@
 
 ;;; gui components
 
+
+;; brushes, fonts, etc.
+
+(define (brush c s)
+  (send the-brush-list find-or-create-brush c s))
+
+(define black-pen (new pen% [color "black"]))
+(define transparent-brush (brush "white" 'transparent))
+(define white-brush (brush "white" 'solid))
+(define black-brush (brush "black" 'solid))
+(define cursor-brush (brush (make-color 128 255 128 0.5) 'solid))
+(define letter-font (make-font #:size 14))
+(define number-font (make-font #:size 6))
+
 (define xword-canvas%
   (class canvas%
     (inherit
@@ -71,37 +85,30 @@
           (set-brush brush)
           (draw-rectangle x y (++ scale) (++ scale)))))
 
-    (define wbrush (new brush% [color "white"]))
-    (define bbrush (new brush% [color "black"]))
-    (define cursor-brush (new brush% [color (make-color 128 255 128 0.5)]))
-    (define letter-font (make-font #:size 14))
-    (define number-font (make-font #:size 6))
-
     (define/private (cell-brush cell)
       (match cell
-        ['black bbrush]
-        [_      wbrush]))
+        ['black black-brush]
+        [_      white-brush]))
 
     (define/private (my-paint-callback self dc)
       (send* dc
-        (set-brush (new brush% [style 'transparent]))
-        (set-pen (new pen% [color "black"]))
+        (set-brush transparent-brush)
+        (set-pen black-pen)
         (draw-rectangle 0 0 height width))
 
       (for* ([r rows]
              [c cols])
         (let* ([sq (grid-get grid r c)]
                [cell (square-cell sq)]
-               [s (string (cell->char cell))]
                [pos (pt r c)]
                [current? (= pos cursor)])
           ; background
           (draw-square dc (cell-brush cell) pos)
-
           ; letter
           (match cell
-            [(or (letter _) (rebus _ _)) (draw-letter dc pos s)]
-            [_ '()])
+            [(or (? letter?) (? rebus?))
+             (draw-letter dc pos (string (cell->char cell)))]
+            [_ (void)])
           ; number
           (match (square-number sq)
             [0 '()]
@@ -129,7 +136,7 @@
       (refresh))
 
     (define/private (toggle-dir!)
-      (set! dir (if (= dir 'across) 'down 'across)))
+      (set! dir (if (eq? dir 'across) 'down 'across)))
 
     (define/private (delta dir)
       (match dir
@@ -190,6 +197,7 @@
           [#\rubout (delete-cell! x y cell)]
           [#\backspace (backspace! x y cell)]
           [#\tab (toggle-dir!)]
+          ['escape (dump-memory-stats)]
           [(? char? c) (set-cell! x y cell c)]
           [_ (void)])))
 
