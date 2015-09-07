@@ -13,6 +13,14 @@
     [(letter c) (string c)]
     [(rebus s c) s]))
 
+(: cell->char (-> Cell Char))
+(define (cell->char cell)
+  (match cell
+    ['black #\#]
+    ['empty #\.]
+    [(letter c) c]
+    [(rebus s c) c]))
+
 (struct square-format-opts ([black : String]
                             [empty : String]
                             [rebus : (-> Char String String)]

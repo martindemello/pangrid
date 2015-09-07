@@ -6,12 +6,7 @@
          (struct-out square)
          (struct-out xword))
 
-;;; utils
-(: ++ (-> Integer Integer))
-(define (++ x) (+ x 1))
-
-(: -- (-> Integer Integer))
-(define (-- x) (- x 1))
+(require "utils.rkt")
 
 ;;; cell
 (define-type Cell (U 'black 'empty letter rebus))
