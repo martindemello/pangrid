@@ -132,6 +132,7 @@
         ['black (grid-set-cell! grid x y 'empty)]
         ['empty (grid-set-cell! grid x y 'black)]
         [_ (void)])
+      (move-cursor-clip! (delta dir))
       (renumber! grid)
       (refresh))
 
