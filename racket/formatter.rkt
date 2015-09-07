@@ -1,5 +1,8 @@
 #lang typed/racket
 
+(provide (all-defined-out)
+         (struct-out square-format-opts))
+
 (require "xword.rkt")
 
 (: cell->string (-> Cell String))
