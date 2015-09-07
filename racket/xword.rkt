@@ -96,23 +96,28 @@
   (and (white? grid x y)
        (boundary? grid x (-- y))))
 
-(: renumber! (-> Grid (Values Integer (Listof Integer) (Listof Integer))))
+(: renumber! (-> Grid (Values (Listof Integer) (Listof Integer))))
 (define (renumber! grid)
-  (for*/fold ([#{n : Integer} 1]
-              [#{across : (Listof Integer)} '()]
-              [#{down : (Listof Integer)} '()])
-             ([x (grid-max-row grid)]
-              [y (grid-max-col grid)])
-    (let* ([across* (cons n across)]
-           [down* (cons n down)]
-           [n* (++ n)]
-           [number! (thunk (grid-set-number! grid x y n*))])
-      (match (list (start-across? grid x y)
-                   (start-down? grid x y))
-        [(list true true) (begin (number!) (values n* across* down*))]
-        [(list true false) (begin (number!) (values n* across* down))]
-        [(list false true) (begin (number!) (values n* across down*))]
-        [(list false false) (values n across down)]))))
+  (let-values
+      ([(num across down)
+        (for*/fold ([#{n : Integer} 1]
+                    [#{across : (Listof Integer)} '()]
+                    [#{down : (Listof Integer)} '()])
+                   ([x (grid-max-row grid)]
+                    [y (grid-max-col grid)])
+          (let* ([across* (cons n across)]
+                 [down* (cons n down)]
+                 [n* (++ n)]
+                 [across? (start-across? grid x y)]
+                 [down? (start-down? grid x y)])
+            (grid-set-number! grid x y
+                              (if (or across? down?) n* 0))
+            (match (list across? down?)
+              [(list true true) (values n* across* down*)]
+              [(list true false) (values n* across* down)]
+              [(list false true) (values n* across down*)]
+              [(list false false) (values n across down)])))])
+    (values across down)))
 
 ;;;; clues
 (struct clues ([across : (Listof String)]
