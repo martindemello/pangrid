@@ -8,6 +8,11 @@
 
 (application:current-app-name "Pangrid")
 
+;;; complex numbers as (x, y)
+(define pt make-rectangular)
+(define pt-x real-part)
+(define pt-y imag-part)
+
 ;;; gui components
 
 (define xword-canvas%
@@ -22,67 +27,99 @@
      grid
      [rows 15]
      [cols 15]
+     [cursor (pt 1 1)]
      [scale 30]
      [pad 30]
      [height 600]
      [width 600])
 
-    (define/private (top r)
-      (+ pad (* r scale)))
+    (define topleft (pt pad pad))
+    (define letter-offset (pt (/ scale 4) (/ scale 4)))
+    (define number-offset (pt (- scale 10) 2))
 
-    (define/private (left c)
-      (+ pad (* c scale)))
+    (define/private (pos->xy p)
+      (+ topleft (* scale p)))
 
-    (define/private (draw-letter dc r c s)
-      (let ([offset (/ scale 4)]
-            [x (left c)]
-            [y (top r)])
+    (define/private (xy->pos p)
+      (let* ([xy (- p topleft)]
+             [r (quotient (pt-x xy) scale)]
+             [c (quotient (pt-y xy) scale)])
+        (pt r c)))
+
+    (define/private (draw-letter dc pos s)
+      (let* ([xy (+ letter-offset (pos->xy pos))]
+             [x (pt-x xy)]
+             [y (pt-y xy)])
         (send* dc
           (set-font letter-font)
-          (draw-text s (+ x offset) (+ y offset)))))
+          (draw-text s x y))))
 
-    (define/private (draw-number dc r c n)
-      (let ([x (left c)]
-            [y (top r)])
+    (define/private (draw-number dc pos n)
+      (let* ([xy (+ number-offset (pos->xy pos))]
+             [x (pt-x xy)]
+             [y (pt-y xy)])
         (send* dc
           (set-font number-font)
-          (draw-text (~a n #:align 'right) (+ x (- scale 10)) (+ y 2)))))
+          (draw-text (~a n #:align 'right) x y))))
+
+    (define/private (draw-square dc brush pos)
+      (let* ([xy (pos->xy pos)]
+             [x (pt-x xy)]
+             [y (pt-y xy)])
+        (send* dc
+          (set-brush brush)
+          (draw-rectangle x y (++ scale) (++ scale)))))
 
     (define wbrush (new brush% [color "white"]))
     (define bbrush (new brush% [color "black"]))
+    (define cursor-brush (new brush% [color (make-color 128 255 128 0.5)]))
     (define letter-font (make-font #:size 14))
     (define number-font (make-font #:size 6))
+
+    (define/private (cell-brush cell)
+      (match cell
+        ['black bbrush]
+        [_      wbrush]))
 
     (define/private (my-paint-callback self dc)
       (send* dc
         (set-brush (new brush% [style 'transparent]))
         (set-pen (new pen% [color "black"]))
         (draw-rectangle 0 0 height width))
+
       (for* ([r rows]
              [c cols])
-          (let* ([sq (grid-get grid r c)]
-                 [cell (square-cell sq)]
-                 [s (string (cell->char cell))]
-                 [x (left c)]
-                 [y (top r)]
-                 [offset (/ scale 4)])
-            ; background
-            (let ([brush (match cell
-                           ['black bbrush]
-                           [_      wbrush])])
-              (send* dc
-                (set-brush brush)
-                (draw-rectangle x y (++ scale) (++ scale))))
-            ; letter
-            (match cell
-              [(or (letter _) (rebus _ _)) (draw-letter dc r c s)]
-              [_ '()])
-            ; number
-            (match (square-number sq)
-              [0 '()]
-              [n (draw-number dc r c n)])
+        (let* ([sq (grid-get grid r c)]
+               [cell (square-cell sq)]
+               [s (string (cell->char cell))]
+               [pos (pt r c)]
+               [current? (= pos cursor)])
+          ; background
+          (draw-square dc (cell-brush cell) pos)
 
-          )))
+          ; letter
+          (match cell
+            [(or (letter _) (rebus _ _)) (draw-letter dc pos s)]
+            [_ '()])
+          ; number
+          (match (square-number sq)
+            [0 '()]
+            [n (draw-number dc pos n)])
+          ; cursor
+          (when current?
+            (draw-square dc cursor-brush pos)))))
+
+    (define/private (handle-click event)
+      (let* ([x (send event get-x)]
+             [y (send event get-y)]
+             [pos (xy->pos (pt x y))])
+        (set! cursor pos)
+        (refresh)))
+
+    (define/override (on-event event)
+      (match (send event get-event-type)
+        ['left-down (handle-click event)]
+        [_ #t]))
 
     (super-new
      [parent parent]
