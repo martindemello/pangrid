@@ -15,7 +15,7 @@
 ;;; square
 (struct square ([cell : Cell]
                 [number : Integer])
-  #:mutable)
+  #:mutable #:transparent)
 
 (: square-black? (-> square Boolean))
 (define (square-black? sq)
@@ -44,7 +44,8 @@
 
 (: make-grid (-> Integer Integer Grid))
 (define (make-grid cols rows)
-  (build-vector cols (λ (i) (make-vector rows (square 'empty 0)))))
+  (build-vector cols (λ (i)
+                       (build-vector rows (λ (j) (square 'empty 0))))))
 
 (: grid-get (-> Grid Integer Integer square))
 (define (grid-get grid x y)
@@ -64,13 +65,20 @@
   (let ([sq (grid-get grid x y)])
     (set-square-cell! sq c)))
 
+(: grid-rows (-> Grid Integer))
+(define (grid-rows grid) (vector-length grid))
+
 (: grid-max-row (-> Grid Integer))
 (define (grid-max-row grid)
-  (-- (vector-length grid)))
+  (-- (grid-rows grid)))
+
+(: grid-cols (-> Grid Integer))
+(define (grid-cols grid)
+  (vector-length (vector-ref grid 0)))
 
 (: grid-max-col (-> Grid Integer))
 (define (grid-max-col grid)
-  (-- (vector-length (vector-ref grid 0))))
+  (-- (grid-cols grid)))
 
 (: black? GridQuery)
 (define (black? grid x y)
@@ -86,38 +94,44 @@
       (> x (grid-max-col grid)) (> y (grid-max-row grid))
       (black? grid x y)))
 
+(: non-boundary? GridQuery)
+(define (non-boundary? grid x y)
+  (not (boundary? grid x y)))
+
 (: start-across? GridQuery)
 (define (start-across? grid x y)
-  (and (white? grid x y)
-       (boundary? grid (-- x) y)))
+  (and (boundary? grid (-- x) y)
+       (non-boundary? grid x y)
+       (non-boundary? grid (++ x) y)))
 
 (: start-down? GridQuery)
 (define (start-down? grid x y)
-  (and (white? grid x y)
-       (boundary? grid x (-- y))))
+  (and (boundary? grid x (-- y))
+       (non-boundary? grid x y)
+       (non-boundary? grid x (++ y))))
 
 (: renumber! (-> Grid (Values (Listof Integer) (Listof Integer))))
 (define (renumber! grid)
   (let-values
       ([(num across down)
-        (for*/fold ([#{n : Integer} 1]
+        (for*/fold ([#{n : Integer} 0]
                     [#{across : (Listof Integer)} '()]
                     [#{down : (Listof Integer)} '()])
-                   ([x (grid-max-row grid)]
-                    [y (grid-max-col grid)])
-          (let* ([across* (cons n across)]
-                 [down* (cons n down)]
-                 [n* (++ n)]
+                   ([y (grid-cols grid)]
+                    [x (grid-rows grid)])
+          (let* ([n* (++ n)]
+                 [across* (cons n* across)]
+                 [down* (cons n* down)]
                  [across? (start-across? grid x y)]
                  [down? (start-down? grid x y)])
             (grid-set-number! grid x y
                               (if (or across? down?) n* 0))
             (match (list across? down?)
-              [(list true true) (values n* across* down*)]
-              [(list true false) (values n* across* down)]
-              [(list false true) (values n* across down*)]
-              [(list false false) (values n across down)])))])
-    (values across down)))
+              [(list #t #t) (values n* across* down*)]
+              [(list #t #f) (values n* across* down)]
+              [(list #f #t) (values n* across down*)]
+              [(list #f #f) (values n across down)])))])
+    (values (reverse across) (reverse down))))
 
 ;;;; clues
 (struct clues ([across : (Listof String)]
@@ -126,3 +140,5 @@
 ; xword
 
 
+(define g (make-grid 3 3))
+(renumber! g)
