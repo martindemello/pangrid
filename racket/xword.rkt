@@ -1,5 +1,11 @@
 #lang typed/racket
 
+(provide (all-defined-out)
+         (struct-out letter)
+         (struct-out rebus)
+         (struct-out square)
+         (struct-out xword))
+
 ;;; utils
 (: ++ (-> Integer Integer))
 (define (++ x) (+ x 1))
@@ -28,15 +34,6 @@
     (match (square-cell sq)
       [(rebus _ _) true]
       [_ false]))
-
-
-(: square->string (-> square String))
-(define (square->string sq)
-  (match (square-cell sq)
-    ['black "#"]
-    ['empty: "."]
-    [(letter c) (string c)]
-    [(rebus s c) s]))
 
 ;;; grid
 (define-type Grid (Vectorof (Vectorof square)))
@@ -133,12 +130,10 @@
               [(list #f #f) (values n across down)])))])
     (values (reverse across) (reverse down))))
 
-;;;; clues
+;;; clues
 (struct clues ([across : (Listof String)]
                [down : (Listof String)]))
 
-; xword
-
-
-(define g (make-grid 3 3))
-(renumber! g)
+;;; xword
+(struct xword ([grid : Grid]
+               [clues : clues]))
