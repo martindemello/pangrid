@@ -33,17 +33,17 @@ let number_coords x y =
   let x, y = topleft x y in
   x + scale - 5, y + 5
 
-let make_square c x y =
+let make_square canvas x y =
   let x1, y1, x2, y2 = square_coords x y in
-  Canvas.create_rectangle c ~x1:x1 ~y1:y1 ~x2:x2 ~y2:y2 ~fill:`White
+  Canvas.create_rectangle canvas ~x1:x1 ~y1:y1 ~x2:x2 ~y2:y2 ~fill:`White
 
-let make_letter c x y s =
+let make_letter canvas x y =
   let x, y = letter_coords x y in
-  Canvas.create_text c ~x:x ~y:y ~text:s ~font:"Arial 14"
+  Canvas.create_text canvas ~x:x ~y:y ~text:" " ~font:"Arial 14"
 
-let make_number c x y n =
+let make_number canvas x y =
   let x, y = number_coords x y in
-  Canvas.create_text c ~x:x ~y:y ~text:(string_of_int n) ~font:"Arial 6" 
+  Canvas.create_text canvas ~x:x ~y:y ~text:" " ~font:"Arial 6"
 
 type xw_cell = {
   x : int;
@@ -59,32 +59,60 @@ let letter_of_cell = function
   | Letter c -> c
   | Rebus (s, c) -> c
 
+let bg_of_cell = function
+  | Black -> `Black
+  | _ -> `White
+
 let make_xword ~canvas ~grid =
-  Array.mapi grid.Xword.grid ~f:(fun x row ->
-      Array.mapi row ~f: (fun y s -> begin
+  Array.mapi grid ~f:(fun x row ->
+      Array.mapi row ~f: (fun y _ -> begin
             let sq = make_square canvas x y
-            and l = make_letter canvas x y (letter_of_cell s.cell) 
-            and n = make_number canvas x y s.num 
+            and l = make_letter canvas x y
+            and n = make_number canvas x y
             in { x; y; square = sq; letter = l; number = n }
           end))
-            
-class xw_canvas ~parent ~grid:g =
+
+class xw_canvas ~parent ~xword:xw =
   let c = make_canvas parent in
   object(self)
   val canvas = c
-  val grid = g
-  val cells = make_xword ~canvas:c ~grid:g
+  val grid = xw.Xword.grid
+  val xword = xw
+  val cells = make_xword ~canvas:c ~grid:xw.Xword.grid
 
   initializer
+    self#update_display;
+    pack [canvas]
+
+  method update_display =
+    Xword.renumber xword;
     for y = 0 to 14 do
       for x = 0 to 14 do
-        Canvas.configure_text canvas cells.(y).(x).letter ~text:"A"
+        self#sync_cell x y
       done
     done;
-    pack [canvas]
+
+  method set_bg x y =
+    Canvas.configure_rectangle canvas cells.(y).(x).square
+      ~fill:(bg_of_cell grid.(y).(x).cell)
+
+  method set_letter x y =
+    Canvas.configure_text canvas cells.(y).(x).letter
+      ~text:(letter_of_cell grid.(y).(x).cell)
+
+  method set_number x y =
+    let n = grid.(y).(x).num in
+    let s = if (n = 0) then " " else (string_of_int n) in
+    Canvas.configure_text canvas cells.(y).(x).number ~text:s
+
+  method sync_cell x y =
+    self#set_bg x y;
+    self#set_number x y;
+    self#set_letter x y;
+
 end
 
-let grid = Xword.make 15 15
-let xw = new xw_canvas ~parent:top ~grid
+let xw = Xword.make 15 15
+let xw_widget = new xw_canvas ~parent:top ~xword:xw
 
 let _ = Printexc.print mainLoop ();;
