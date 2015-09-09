@@ -1,6 +1,7 @@
 open Tk
 open StdLabels
 open Types
+open Cursor
 
 let top = openTk () ;;
 Wm.title_set top "Pangrid" ;;
@@ -46,8 +47,6 @@ let make_number canvas x y =
   Canvas.create_text canvas ~x:x ~y:y ~text:" " ~font:"Arial 6"
 
 type xw_cell = {
-  x : int;
-  y : int;
   square : Tk.tagOrId;
   letter : Tk.tagOrId;
   number : Tk.tagOrId;
@@ -59,18 +58,23 @@ let letter_of_cell = function
   | Letter c -> c
   | Rebus (s, c) -> c
 
-let bg_of_cell = function
-  | Black -> `Black
-  | _ -> `White
+let bg_of_cell cell is_cursor =
+ match cell, is_cursor with
+  | Black, false -> `Black
+  | Black, true -> `Color "dark green"
+  | _, false -> `White
+  | _, true -> `Color "pale green"
 
 let make_xword ~canvas ~grid =
-  Array.mapi grid ~f:(fun x row ->
-      Array.mapi row ~f: (fun y _ -> begin
+  Array.mapi grid ~f:(fun y row ->
+      Array.mapi row ~f: (fun x _ -> begin
             let sq = make_square canvas x y
             and l = make_letter canvas x y
             and n = make_number canvas x y
-            in { x; y; square = sq; letter = l; number = n }
+            in { square = sq; letter = l; number = n }
           end))
+
+let printxy x y = print_endline ((string_of_int x) ^ ", " ^ (string_of_int y))
 
 class xw_canvas ~parent ~xword:xw =
   let c = make_canvas parent in
@@ -78,23 +82,65 @@ class xw_canvas ~parent ~xword:xw =
   val canvas = c
   val grid = xw.Xword.grid
   val xword = xw
+  val rows = xw.Xword.rows
+  val cols = xw.Xword.cols
   val cells = make_xword ~canvas:c ~grid:xw.Xword.grid
+  val mutable cursor = Cursor.make xw.Xword.rows xw.Xword.cols
 
   initializer
     self#update_display;
     pack [canvas]
 
+  method make_bindings =
+    (* per-square mouse bindings *)
+    for y = 0 to rows - 1 do
+      for x = 0 to cols - 1 do begin
+        let bind_obj b =
+          Canvas.bind canvas b ~events:[`ButtonPress]
+            ~action:(fun _ -> self#set_cursor {cursor with x; y})
+        in
+        let c = cells.(y).(x) in
+        (* we need to have all three components register clicks *)
+        List.iter ~f:bind_obj [c.square; c.letter; c.number]
+      end done
+    done;
+    (* keyboard bindings *)
+    bind canvas ~events:[`KeyPress] ~fields:[`Char; `KeySymString]
+      ~action:(fun ev -> self#handle_keypress ev);
+    Focus.set canvas
+
   method update_display =
-    Xword.renumber xword;
-    for y = 0 to 14 do
-      for x = 0 to 14 do
+    ignore (Xword.renumber xword);
+    self#make_bindings;
+    for y = 0 to rows - 1 do
+      for x = 0 to cols - 1 do
         self#sync_cell x y
       done
     done;
 
+  method set_cursor new_cursor =
+    let ox, oy = cursor.x, cursor.y in
+    cursor <- new_cursor;
+    self#set_bg cursor.x cursor.y;
+    self#set_bg ox oy
+
+  method move_cursor ?wrap:(wrap=true) (dir : direction) =
+    let new_cursor = Cursor.move cursor ~wrap:wrap dir in
+    self#set_cursor new_cursor;
+
+  method handle_keypress ev =
+    match ev.ev_KeySymString with
+    | "Left" -> self#move_cursor `Left
+    | "Right" -> self#move_cursor `Right
+    | "Up" -> self#move_cursor `Up
+    | "Down" -> self#move_cursor `Down
+    | _ -> ()
+
+
   method set_bg x y =
+    let is_cursor = (x, y) = (cursor.x, cursor.y) in
     Canvas.configure_rectangle canvas cells.(y).(x).square
-      ~fill:(bg_of_cell grid.(y).(x).cell)
+      ~fill:(bg_of_cell grid.(y).(x).cell is_cursor)
 
   method set_letter x y =
     Canvas.configure_text canvas cells.(y).(x).letter
@@ -114,5 +160,6 @@ end
 
 let xw = Xword.make 15 15
 let xw_widget = new xw_canvas ~parent:top ~xword:xw
+
 
 let _ = Printexc.print mainLoop ();;

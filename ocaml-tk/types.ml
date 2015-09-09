@@ -11,3 +11,5 @@ type clues = {
   mutable across : string list;
   mutable down : string list;
 }
+
+type direction = [`Left | `Right | `Up | `Down | `Across | `Bksp_Ac | `Bksp_Dn ]
