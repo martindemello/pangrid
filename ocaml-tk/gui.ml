@@ -16,7 +16,7 @@ let make_canvas parent =
       ~background: `White
       parent
 
-
+(* Set up grid on canvas *)
 let scale = 30
 
 let topleft x y = x * scale, y * scale
@@ -52,18 +52,6 @@ type xw_cell = {
   number : Tk.tagOrId;
 }
 
-let letter_of_cell = function
-  | Black -> "#"
-  | Empty -> " "
-  | Letter c -> c
-  | Rebus (s, c) -> c
-
-let bg_of_cell cell is_cursor =
- match cell, is_cursor with
-  | Black, false -> `Black
-  | Black, true -> `Color "dark green"
-  | _, false -> `White
-  | _, true -> `Color "pale green"
 
 let make_xword ~canvas ~grid =
   Array.mapi grid ~f:(fun y row ->
@@ -76,11 +64,23 @@ let make_xword ~canvas ~grid =
 
 let printxy x y = print_endline ((string_of_int x) ^ ", " ^ (string_of_int y))
 
+let letter_of_cell = function
+  | Black -> ""
+  | Empty -> ""
+  | Letter c -> c
+  | Rebus (s, c) -> c
+
+let bg_of_cell cell is_cursor =
+ match cell, is_cursor with
+  | Black, false -> `Black
+  | Black, true -> `Color "dark green"
+  | _, false -> `White
+  | _, true -> `Color "pale green"
+
 class xw_canvas ~parent ~xword:xw =
   let c = make_canvas parent in
   object(self)
   val canvas = c
-  val grid = xw.Xword.grid
   val xword = xw
   val rows = xw.Xword.rows
   val cols = xw.Xword.cols
@@ -121,8 +121,8 @@ class xw_canvas ~parent ~xword:xw =
   method set_cursor new_cursor =
     let ox, oy = cursor.x, cursor.y in
     cursor <- new_cursor;
-    self#set_bg cursor.x cursor.y;
-    self#set_bg ox oy
+    self#sync_bg cursor.x cursor.y;
+    self#sync_bg ox oy
 
   method move_cursor ?wrap:(wrap=true) (dir : direction) =
     let new_cursor = Cursor.move cursor ~wrap:wrap dir in
@@ -137,29 +137,34 @@ class xw_canvas ~parent ~xword:xw =
     | _ -> ()
 
 
-  method set_bg x y =
+  method sync_bg x y =
+    let cell = Xword.get_cell xw x y in
     let is_cursor = (x, y) = (cursor.x, cursor.y) in
     Canvas.configure_rectangle canvas cells.(y).(x).square
-      ~fill:(bg_of_cell grid.(y).(x).cell is_cursor)
+      ~fill:(bg_of_cell cell is_cursor)
 
-  method set_letter x y =
+  method sync_letter x y =
+    let cell = Xword.get_cell xw x y in
     Canvas.configure_text canvas cells.(y).(x).letter
-      ~text:(letter_of_cell grid.(y).(x).cell)
+      ~text:(letter_of_cell cell)
 
-  method set_number x y =
-    let n = grid.(y).(x).num in
+  method sync_number x y =
+    let n = Xword.get_num xw x y in
     let s = if (n = 0) then " " else (string_of_int n) in
     Canvas.configure_text canvas cells.(y).(x).number ~text:s
 
   method sync_cell x y =
-    self#set_bg x y;
-    self#set_number x y;
-    self#set_letter x y;
+    self#sync_bg x y;
+    self#sync_number x y;
+    self#sync_letter x y;
 
 end
 
-let xw = Xword.make 15 15
-let xw_widget = new xw_canvas ~parent:top ~xword:xw
+let xw =
+  let xw = Xword.make 15 15 in
+  Xword.set_cell xw 4 5 Black;
+  xw
 
+let xw_widget = new xw_canvas ~parent:top ~xword:xw
 
 let _ = Printexc.print mainLoop ();;
