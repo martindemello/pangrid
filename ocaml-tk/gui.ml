@@ -89,6 +89,7 @@ class xw_canvas ~parent ~xword:xw =
 
   initializer
     self#update_display;
+    self#make_bindings;
     pack [canvas]
 
   method make_bindings =
@@ -110,13 +111,15 @@ class xw_canvas ~parent ~xword:xw =
     Focus.set canvas
 
   method update_display =
-    ignore (Xword.renumber xword);
-    self#make_bindings;
+    Xword.renumber xword |> ignore;
     for y = 0 to rows - 1 do
       for x = 0 to cols - 1 do
         self#sync_cell x y
       done
     done;
+
+  method current_cell =
+    Xword.get_cell xw cursor.x cursor.y
 
   method set_cursor new_cursor =
     let ox, oy = cursor.x, cursor.y in
@@ -128,12 +131,19 @@ class xw_canvas ~parent ~xword:xw =
     let new_cursor = Cursor.move cursor ~wrap:wrap dir in
     self#set_cursor new_cursor;
 
+  method toggle_black =
+    if Xword.toggle_black xw cursor.x cursor.y then begin
+      Xword.renumber xw |> ignore;
+      self#update_display
+    end
+
   method handle_keypress ev =
     match ev.ev_KeySymString with
     | "Left" -> self#move_cursor `Left
     | "Right" -> self#move_cursor `Right
     | "Up" -> self#move_cursor `Up
     | "Down" -> self#move_cursor `Down
+    | "space" -> self#toggle_black
     | _ -> ()
 
 

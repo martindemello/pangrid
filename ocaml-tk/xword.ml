@@ -51,8 +51,8 @@ let renumber xw =
   let n = ref 1 in
   let ac = ref [] in
   let dn = ref [] in
-  for x = 0 to xw.cols - 1 do
-    for y = 0 to xw.rows - 1 do
+  for y = 0 to xw.rows - 1 do
+    for x = 0 to xw.cols - 1 do
       let a, d = start_across xw x y, start_down xw x y in
       if a then ac := n :: !ac;
       if d then dn := n :: !dn;
@@ -60,6 +60,14 @@ let renumber xw =
         set_num xw x y !n;
         n := !n + 1;
       end
+      else
+        set_num xw x y 0;
     done
   done;
   (List.rev !ac, List.rev !dn)
+
+let toggle_black xw x y =
+  match get_cell xw x y with
+  | Black -> set_cell xw x y Empty; true
+  | Empty -> set_cell xw x y Black; true
+  | _ -> false
