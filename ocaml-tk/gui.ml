@@ -86,6 +86,7 @@ class xw_canvas ~parent ~xword:xw =
   val cols = xw.Xword.cols
   val cells = make_xword ~canvas:c ~grid:xw.Xword.grid
   val mutable cursor = Cursor.make xw.Xword.rows xw.Xword.cols
+  val mutable dir : [`Across | `Down] = `Across
 
   initializer
     self#update_display;
@@ -127,15 +128,23 @@ class xw_canvas ~parent ~xword:xw =
     self#sync_bg cursor.x cursor.y;
     self#sync_bg ox oy
 
-  method move_cursor ?wrap:(wrap=true) (dir : direction) =
-    let new_cursor = Cursor.move cursor ~wrap:wrap dir in
+  method move_cursor ?wrap:(wrap=true) d =
+    let new_cursor = Cursor.move cursor ~wrap:wrap d in
     self#set_cursor new_cursor;
+
+  method toggle_dir = dir <- match dir with
+      `Across -> `Down | `Down -> `Across
 
   method toggle_black =
     if Xword.toggle_black xw cursor.x cursor.y then begin
       Xword.renumber xw |> ignore;
       self#update_display
     end
+
+  method set_letter s =
+    Xword.set_cell xw cursor.x cursor.y (Letter s);
+    self#sync_cell cursor.x cursor.y;
+    self#move_cursor ~wrap:false (dir :> direction)
 
   method handle_keypress ev =
     match ev.ev_KeySymString with
@@ -144,7 +153,9 @@ class xw_canvas ~parent ~xword:xw =
     | "Up" -> self#move_cursor `Up
     | "Down" -> self#move_cursor `Down
     | "space" -> self#toggle_black
-    | _ -> ()
+    | "Tab" -> self#toggle_dir
+    | s when String.length(s) == 1 -> self#set_letter s
+    | s -> print_endline s
 
 
   method sync_bg x y =
