@@ -5,16 +5,7 @@ open Cursor
 
 let top = openTk () ;;
 Wm.title_set top "Pangrid" ;;
-Wm.geometry_set top "320x120"
 
-let make_canvas parent =
-   Canvas.create
-      ~width:600
-      ~height:600
-      ~borderwidth:2
-      ~relief:`Sunken
-      ~background: `White
-      parent
 
 (* Set up grid on canvas *)
 let scale = 30
@@ -52,7 +43,6 @@ type xw_cell = {
   number : Tk.tagOrId;
 }
 
-
 let make_xword ~canvas ~grid =
   Array.mapi grid ~f:(fun y row ->
       Array.mapi row ~f: (fun x _ -> begin
@@ -78,13 +68,13 @@ let bg_of_cell cell is_cursor =
   | _, true -> `Color "pale green"
 
 class xw_canvas ~parent ~xword:xw =
-  let c = make_canvas parent in
+  let canvas = Canvas.create
+      ~width:450 ~height:450 ~borderwidth:2 ~relief:`Sunken ~background: `White
+      parent in
   object(self)
-  val canvas = c
-  val xword = xw
   val rows = xw.Xword.rows
   val cols = xw.Xword.cols
-  val cells = make_xword ~canvas:c ~grid:xw.Xword.grid
+  val cells = make_xword ~canvas:canvas ~grid:xw.Xword.grid
   val mutable cursor = Cursor.make xw.Xword.rows xw.Xword.cols
   val mutable dir : [`Across | `Down] = `Across
 
@@ -112,7 +102,7 @@ class xw_canvas ~parent ~xword:xw =
     Focus.set canvas
 
   method update_display =
-    Xword.renumber xword |> ignore;
+    Xword.renumber xw |> ignore;
     for y = 0 to rows - 1 do
       for x = 0 to cols - 1 do
         self#sync_cell x y
@@ -181,11 +171,37 @@ class xw_canvas ~parent ~xword:xw =
 
 end
 
+class clues_widget ~parent =
+  object(self)
+    initializer
+      let scry = Scrollbar.create parent in
+      let text = Text.create ~width:20 ~height:4
+          ~yscrollcommand:(Scrollbar.set scry)
+          ~background:(`Color "#FFFFFF")
+          parent
+      in
+      Scrollbar.configure ~command:(Text.yview text) scry;
+      pack [text] ~expand:true ~fill:`Both ~side:`Left;
+      pack [scry] ~expand:false ~fill:`Y ~side:`Right
+
+end
+
 let xw =
   let xw = Xword.make 15 15 in
   Xword.set_cell xw 4 5 Black;
   xw
 
-let xw_widget = new xw_canvas ~parent:top ~xword:xw
+let _ =
+  let clue_frame = Frame.create ~relief:`Groove ~borderwidth:2 top in
+  let xw_frame = Frame.create ~relief:`Groove ~borderwidth:2 top in
+  let across_frame = Frame.create ~relief:`Groove ~borderwidth:1 clue_frame in
+  let down_frame = Frame.create ~relief:`Groove ~borderwidth:1 clue_frame in
+  let across = new clues_widget ~parent:across_frame in
+  let down = new clues_widget ~parent:down_frame in
+  let xw_widget = new xw_canvas ~parent:xw_frame ~xword:xw in
+  pack [xw_frame] ~side:`Left ~expand:false ~anchor:`N;
+  pack [clue_frame] ~side:`Right ~expand:true ~fill:`Both;
+  pack [across_frame] ~side:`Top ~expand:true ~fill:`Both;
+  pack [down_frame] ~side:`Bottom ~expand:true ~fill:`Both
 
 let _ = Printexc.print mainLoop ();;
