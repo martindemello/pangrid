@@ -1,12 +1,5 @@
 open Types
 
-type t = {
-  rows : int;
-  cols : int;
-  grid : square array array;
-  clues : clues;
-}
-
 let make rows cols =
   let sq = { cell = Empty; num = 0 } in
   {

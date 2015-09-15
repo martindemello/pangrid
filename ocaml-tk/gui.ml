@@ -72,10 +72,10 @@ class xw_canvas ~parent ~xword:xw =
       ~width:450 ~height:450 ~borderwidth:2 ~relief:`Sunken ~background: `White
       parent in
   object(self)
-  val rows = xw.Xword.rows
-  val cols = xw.Xword.cols
-  val cells = make_xword ~canvas:canvas ~grid:xw.Xword.grid
-  val mutable cursor = Cursor.make xw.Xword.rows xw.Xword.cols
+  val rows = xw.rows
+  val cols = xw.cols
+  val cells = make_xword ~canvas:canvas ~grid:xw.grid
+  val mutable cursor = Cursor.make xw.rows xw.cols
   val mutable dir : [`Across | `Down] = `Across
 
   initializer

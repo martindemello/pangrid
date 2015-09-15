@@ -13,3 +13,11 @@ type clues = {
 }
 
 type direction = [`Left | `Right | `Up | `Down | `Across | `Bksp_Ac | `Bksp_Dn ]
+
+type xword = {
+  rows : int;
+  cols : int;
+  grid : square array array;
+  clues : clues;
+}
+
