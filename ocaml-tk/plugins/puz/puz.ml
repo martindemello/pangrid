@@ -68,6 +68,58 @@ let new_puzzle = {
 
 exception PuzzleFormatError of string
 
+(* CRC checksum for binary format *)
+class checksum ~seed =
+  object(self)
+    val mutable sum = seed
+
+    method sum = sum
+
+    method add_char b =
+      let low = sum land 0x001 in
+      sum <- sum lsr 1;
+      if low = 1 then sum <- sum lor 0x8000;
+      sum <- (sum + (Char.to_int b)) land 0xffff
+
+    method add_string s =
+      String.iter s self#add_char
+
+    method add_string_0 s =
+      if not (String.is_empty s) then begin
+        self#add_string s;
+        self#add_char '\000'
+      end
+  end
+
+let checksum_of_string s =
+  let c = new checksum 0 in
+  c#add_string s;
+  c#sum
+
+(* Access a string as an input stream *)
+let string_io _string =
+  object
+    val str = _string
+    val mutable pos = 0
+
+    method read n = begin
+      pos <- pos + n;
+      String.sub str (pos - n) n
+    end
+
+    method read_string = begin
+      let i = String.index_from str pos '\000' in
+      match i with
+      | Some i -> begin
+          let s = String.sub str pos (i - pos) in
+          pos <- i + 1;
+          s
+        end
+      | None -> raise (PuzzleFormatError "Could not read string")
+    end
+  end
+
+(* Read header from binary .puz *)
 let read_header data start =
   let s = Bitstring.bitstring_of_string data in
   bitmatch s with
@@ -90,27 +142,6 @@ let read_header data start =
   } ->
     { new_puzzle with preamble; width; height; version; n_clues }
 
-let string_io _string =
-  object
-    val str = _string
-    val mutable pos = 0
-
-    method read n = begin
-      pos <- pos + n;
-      String.sub str (pos - n) n
-    end
-
-    method read_string = begin
-      let i = String.index_from str pos '\000' in
-      match i with
-      | Some i -> begin
-          let s = String.sub str pos (i - pos) in
-          pos <- i + 1;
-          s
-        end
-      | None -> raise (PuzzleFormatError "Could not read string")
-    end
-  end
 
 let load_puzzle data =
   (* Files may contain some data before the start of the puzzle.
