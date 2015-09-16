@@ -1,2 +1,5 @@
-true: package(labltk)
 true: thread,debug
+
+<gui.*>: package(labltk)
+<**/puz.*>: package(bitstring), package(unix), package(bitstring.syntax), package(str), package(core_kernel)
+<**/puz.*>: syntax(bitstring)
