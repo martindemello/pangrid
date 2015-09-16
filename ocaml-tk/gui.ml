@@ -171,37 +171,53 @@ class xw_canvas ~parent ~xword:xw =
 
 end
 
-class clues_widget ~parent =
+class clue_listbox ~parent ~label ~clues =
   object(self)
     initializer
       let scry = Scrollbar.create parent in
-      let text = Text.create ~width:20 ~height:4
+      let label = Label.create ~text:label parent in
+      let text = Listbox.create
           ~yscrollcommand:(Scrollbar.set scry)
           ~background:(`Color "#FFFFFF")
+          ~selectmode:`Browse
           parent
       in
-      Scrollbar.configure ~command:(Text.yview text) scry;
+      Scrollbar.configure ~command:(Listbox.yview text) scry;
+      Listbox.insert ~index:`End ~texts:clues text;
+      pack [label] ~expand:false ~fill:`X ~side:`Top;
       pack [text] ~expand:true ~fill:`Both ~side:`Left;
       pack [scry] ~expand:false ~fill:`Y ~side:`Right
+  end
 
-end
+class clue_widget ~parent ~clues =
+  object(self)
+    initializer
+      let across_frame = Frame.create ~relief:`Groove ~borderwidth:1 parent in
+      let down_frame = Frame.create ~relief:`Groove ~borderwidth:1 parent in
+      let across = new clue_listbox ~parent:across_frame ~clues:clues.across
+        ~label:"Across" in
+      let down = new clue_listbox ~parent:down_frame ~clues:clues.down
+        ~label:"Down" in
+      pack [across_frame] ~side:`Top ~expand:true ~fill:`Both;
+      pack [down_frame] ~side:`Bottom ~expand:true ~fill:`Both
+  end
 
 let xw =
   let xw = Xword.make 15 15 in
   Xword.set_cell xw 4 5 Black;
   xw
 
+let clues = {
+  across = ["foo"; "bar"; "baz"];
+  down = ["quux"];
+}
+
 let _ =
   let clue_frame = Frame.create ~relief:`Groove ~borderwidth:2 top in
   let xw_frame = Frame.create ~relief:`Groove ~borderwidth:2 top in
-  let across_frame = Frame.create ~relief:`Groove ~borderwidth:1 clue_frame in
-  let down_frame = Frame.create ~relief:`Groove ~borderwidth:1 clue_frame in
-  let across = new clues_widget ~parent:across_frame in
-  let down = new clues_widget ~parent:down_frame in
   let xw_widget = new xw_canvas ~parent:xw_frame ~xword:xw in
+  let clue_widget = new clue_widget ~parent:clue_frame ~clues:clues in
   pack [xw_frame] ~side:`Left ~expand:false ~anchor:`N;
-  pack [clue_frame] ~side:`Right ~expand:true ~fill:`Both;
-  pack [across_frame] ~side:`Top ~expand:true ~fill:`Both;
-  pack [down_frame] ~side:`Bottom ~expand:true ~fill:`Both
+  pack [clue_frame] ~side:`Right ~expand:true ~fill:`Both
 
 let _ = Printexc.print mainLoop ();;
