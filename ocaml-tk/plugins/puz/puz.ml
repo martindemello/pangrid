@@ -18,9 +18,14 @@ type solution_state = [`Locked | `Unlocked]
 
 type grid_markup = [`Default | `PreviouslyIncorrect | `Incorrect | `Revealed | `Circled]
 
-type extension_type = [`Rebus | `RebusSolutions | `RebusFill | `Timer | `Markup]
+type extension_type = [`RebusSolutions | `RebusFill | `Timer | `Markup]
 
-type extension = extension_type * string
+type extension = {
+  section: string;
+  length: int;
+  data: string;
+  checksum: int
+}
 
 type puzzle = {
   preamble: string;
@@ -97,17 +102,18 @@ let checksum_of_string s =
   c#sum
 
 (* Access a string as an input stream *)
-let string_io _string =
+class string_io _string =
   object
     val str = _string
     val mutable pos = 0
 
-    method read n = begin
+    method remaining = String.length str - pos
+
+    method read n =
       pos <- pos + n;
       String.sub str (pos - n) n
-    end
 
-    method read_string = begin
+    method read_string =
       let i = String.index_from str pos '\000' in
       match i with
       | Some i -> begin
@@ -116,7 +122,7 @@ let string_io _string =
           s
         end
       | None -> raise (PuzzleFormatError "Could not read string")
-    end
+
   end
 
 (* Read header from binary .puz *)
@@ -143,6 +149,31 @@ let read_header data start =
     { new_puzzle with preamble; width; height; version; n_clues }
 
 
+(* extensions *)
+let read_extensions (s : string_io) =
+  let read_extension_header data =
+    let s = Bitstring.bitstring_of_string data in
+    bitmatch s with
+    | {
+        section: 4 * 8 : string;
+        length: 16 : littleendian;
+        checksum: 16 : littleendian
+    } -> { data = ""; section; length; checksum }
+  in  
+
+  let read_extension s =
+    let header = s#read 8 in
+    let ex = read_extension_header header in
+    let data = s#read (ex.length + 1) in
+    { ex with data = data }
+  in
+
+  let out = ref [] in
+  while s#remaining > 8 do
+    out := read_extension s :: !out
+  done;
+  List.rev !out
+
 let load_puzzle data =
   (* Files may contain some data before the start of the puzzle.
      Use the magic string as a start marker and save the preamble for
@@ -151,7 +182,7 @@ let load_puzzle data =
     try (Str.search_forward file_magic data 0) - 2
     with Not_found -> raise (PuzzleFormatError "Could not find start of puzzle")
   in
-  let s = string_io data in
+  let s = new string_io data in
   let header = s#read (start + 0x34) in
   let puz = read_header header start in
   let solution = s#read (puz.width * puz.height) in
@@ -161,8 +192,9 @@ let load_puzzle data =
   let copyright = s#read_string in
   let clues = Array.init puz.n_clues (fun i -> s#read_string) in
   let notes = s#read_string in
+  let extensions = read_extensions s in
   { puz with solution; fill; title; author; copyright; notes;
-    clues = Array.to_list clues
+             extensions; clues = Array.to_list clues
   }
 
 (* puzzle -> xword conversion *)
