@@ -1,5 +1,7 @@
 open Printf
 open Core_kernel
+open Core_kernel.Std
+open Types
 
 (* String Constants *)
 let header_cksum_format = "<BBH H H "
@@ -10,13 +12,13 @@ let extension_header_format = "< 4s  H H "
 
 (* Datatypes *)
 
-type puzzle_type = Normal | Diagramless
+type puzzle_type = [`Normal | `Diagramless]
 
-type solution_state = Locked | Unlocked
+type solution_state = [`Locked | `Unlocked]
 
-type grid_markup = Default | PreviouslyIncorrect | Incorrect | Revealed | Circled
+type grid_markup = [`Default | `PreviouslyIncorrect | `Incorrect | `Revealed | `Circled]
 
-type extension_type = Rebus | RebusSolutions | RebusFill | Timer | Markup
+type extension_type = [`Rebus | `RebusSolutions | `RebusFill | `Timer | `Markup]
 
 type extension = extension_type * string
 
@@ -36,7 +38,7 @@ type puzzle = {
   solution: string;
   clues: string list;
   notes: string;
-  extensions: extensions list;
+  extensions: extension list;
   puzzletype: puzzle_type;
   solution_state: solution_state;
   helpers: string list
@@ -59,8 +61,8 @@ let new_puzzle = {
   clues = [];
   notes = "";
   extensions = [];
-  puzzletype = Normal;
-  solution_state = Unlocked;
+  puzzletype = `Normal;
+  solution_state = `Unlocked;
   helpers = [];
 }
 
@@ -100,9 +102,13 @@ let string_io _string =
 
     method read_string = begin
       let i = String.index_from str pos '\000' in
-      let s = String.sub str pos (i - pos) in
-      pos <- i + 1;
-      s
+      match i with
+      | Some i -> begin
+          let s = String.sub str pos (i - pos) in
+          pos <- i + 1;
+          s
+        end
+      | None -> raise (PuzzleFormatError "Could not read string")
     end
   end
 
@@ -128,9 +134,40 @@ let load_puzzle data =
     clues = Array.to_list clues
   }
 
+(* puzzle -> xword conversion *)
+let cell_of_char c = match c with
+  | '.' -> Black
+  | ' ' -> Empty
+  | c  -> Letter (Char.to_string c)
+
+let unpack_clues xw puzzle =
+  let clues = Array.of_list puzzle.clues in
+  let ac = ref [] in
+  let dn = ref [] in
+  let i = ref 0 in
+  Xword.renumber
+    ~on_ac:(fun n -> ac := clues.(!i) :: !ac; i := !i + 1)
+    ~on_dn:(fun n -> dn := clues.(!i) :: !dn; i := !i + 1)
+    xw;
+  xw.clues.across <- List.rev !ac;
+  xw.clues.down <- List.rev !dn
+
+let to_xw puzzle =
+  let xw = Xword.make puzzle.height puzzle.width in
+  let s = puzzle.solution in
+  for y = 0 to xw.rows - 1 do
+    for x = 0 to xw.cols - 1 do
+      let ix = y * xw.cols + x in
+      let cell = cell_of_char s.[ix] in
+      Xword.set_cell xw x y cell
+    done
+  done;
+  unpack_clues xw puzzle;
+  xw
+
+
 let _ =
   let data = In_channel.read_all "lat140105.puz" in
   let puz = load_puzzle data in
-  List.iter (fun i -> printf "%s\n" i) puz.clues;
-  printf "---\n%s\n---\n" puz.notes;
-  printf "%d %d\n" puz.width puz.height
+  let xw = to_xw puz in
+  Xword.inspect xw

@@ -40,15 +40,13 @@ let start_down xw x y =
   (non_boundary xw x y) &&
   (non_boundary xw x (y + 1))
 
-let renumber xw =
+let renumber ?(on_ac=ignore) ?(on_dn=ignore) xw =
   let n = ref 1 in
-  let ac = ref [] in
-  let dn = ref [] in
   for y = 0 to xw.rows - 1 do
     for x = 0 to xw.cols - 1 do
       let a, d = start_across xw x y, start_down xw x y in
-      if a then ac := n :: !ac;
-      if d then dn := n :: !dn;
+      if a then on_ac !n;
+      if d then on_dn !n;
       if (a || d) then begin
         set_num xw x y !n;
         n := !n + 1;
@@ -56,8 +54,43 @@ let renumber xw =
       else
         set_num xw x y 0;
     done
-  done;
-  (List.rev !ac, List.rev !dn)
+  done
+
+let clue_numbers xw =
+  let ac = ref [] in
+  let dn = ref [] in
+  renumber
+    ~on_ac:(fun n -> ac := n :: !ac)
+    ~on_dn:(fun n -> dn := n :: !dn)
+    xw;
+  List.rev !ac, List.rev !dn
+
+let inspect_grid xw =
+  for y = 0 to xw.rows - 1 do
+    for x = 0 to xw.cols - 1 do
+      let c = match (get_cell xw x y) with
+        | Black -> "#"
+        | Empty -> "."
+        | Letter c -> c
+        | Rebus (s, c) -> c
+      in
+      print_string c;
+      print_string " "
+    done;
+    print_newline ()
+  done
+
+let inspect_clues xw =
+  let ac, dn = clue_numbers xw in
+  let print_clue i clue = Printf.printf "%d. %s\n" i clue in
+  print_endline "Across";
+  List.iter2 print_clue ac xw.clues.across;
+  print_endline "Down";
+  List.iter2 print_clue dn xw.clues.down
+
+let inspect xw =
+  inspect_grid xw;
+  inspect_clues xw
 
 let toggle_black xw x y =
   match get_cell xw x y with
