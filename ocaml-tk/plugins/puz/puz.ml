@@ -2,6 +2,7 @@ open Printf
 open Core_kernel
 open Core_kernel.Std
 open Types
+open Opal
 
 (* String Constants *)
 let header_cksum_format = "<BBH H H "
@@ -149,7 +150,7 @@ let read_header data start =
     { new_puzzle with preamble; width; height; version; n_clues }
 
 
-(* extensions *)
+(* read in extensions *)
 let read_extensions (s : string_io) =
   let read_extension_header data =
     let s = Bitstring.bitstring_of_string data in
@@ -173,6 +174,37 @@ let read_extensions (s : string_io) =
     out := read_extension s :: !out
   done;
   List.rev !out
+
+(* opal parsers *)
+let number = many1 digit => implode % int_of_string
+let eos = exactly '\000'
+
+let process_extension ex =
+  let validate_extension ex =
+    List.mem ["GRBL"; "RTBL"; "GEXT"; "LTIM"] ex.section
+  in
+
+  let read_ltim s =
+    let ltim = number >>= fun i ->
+        (exactly ',') >>
+        number >>= fun j ->
+        eos >>
+        return (i, j)
+    in
+    let read s =
+      let input = LazyStream.of_string s in
+      match parse ltim input with
+      | Some (i, j) -> Printf.printf "(%d, %d)" i j
+      | None -> print_endline "NO LTIM"
+    in
+    read s
+  in
+
+  print_endline ex.section
+
+
+
+  
 
 let load_puzzle data =
   (* Files may contain some data before the start of the puzzle.
@@ -230,7 +262,9 @@ let to_xw puzzle =
 
 
 let _ =
-  let data = In_channel.read_all "lat140105.puz" in
+  let fname = "mini.puz" in
+  let data = In_channel.read_all fname in
   let puz = load_puzzle data in
   let xw = to_xw puz in
-  Xword.inspect xw
+  Xword.inspect xw;
+  List.iter puz.extensions process_extension
