@@ -68,7 +68,7 @@ end
 # Binary format
 class AcrossLiteBinary < Plugin
   # crossword, checksums
-  attr_accessor :xw, :cs, :extensions
+  attr_accessor :xw, :cs
 
   HEADER_FORMAT = "v A12 v V2 A4 v2 A12 c2 v3"
   HEADER_CHECKSUM_FORMAT = "c2 v3"
@@ -79,7 +79,7 @@ class AcrossLiteBinary < Plugin
   def initialize
     @xw = XWord.new
     @cs = OpenStruct.new
-    @extensions = []
+    @xw.extensions = []
   end
 
   def read(data)
@@ -116,7 +116,7 @@ class AcrossLiteBinary < Plugin
       break if s.length < size
       e.data = s[8 ... size]
       self.send(:"read_#{e.section.downcase}", e)
-      extensions << e
+      xw.extensions << e
       s = s[size .. -1]
     end
 
@@ -131,15 +131,39 @@ class AcrossLiteBinary < Plugin
 
   def write(xw)
     @xw = xw
-    @cs = checksums
 
-    # fill in some fields that might not be present
+    # fill in some fields that might not be present (checksums needs this)
     pack_clues
     xw.n_clues = xw.clues.length
     xw.fill ||= empty_fill(xw)
     xw.puzzle_type ||= 1
     xw.scrambled_state ||= 0
-    xw.version ||= "1.3"
+    xw.version = "1.3"
+    xw.notes ||= ""
+    xw.extensions ||= []
+
+    # extensions
+    xw.encode_rebus!
+    if not xw.rebus.empty?
+      # GRBS
+      e = OpenStruct.new
+      e.section = "GRBS"
+      e.grid = xw.to_array({:black => 0, :null => 0}) {|s|
+        s.rebus? ? s.solution.symbol.to_i : 0
+      }.flatten
+      xw.extensions << e
+      # RTBL
+      e = OpenStruct.new
+      e.section = "RTBL"
+      e.rebus = {}
+      xw.rebus.each do |long, (k, short)|
+        e.rebus[k] = [long, short]
+      end
+      xw.extensions << e
+    end
+
+    # calculate checksums
+    @cs = checksums
 
     h = [cs.global, FILE_MAGIC, cs.cib, cs.masked_low, cs.masked_high,
          xw.version + "\0", 0, cs.scrambled, "\0" * 12,
@@ -190,8 +214,8 @@ class AcrossLiteBinary < Plugin
   end
 
   def get_extension(s)
-    return nil unless extensions
-    extensions.find {|e| e.section == s}
+    return nil unless xw.extensions
+    xw.extensions.find {|e| e.section == s}
   end
 
   def process_extensions
@@ -208,8 +232,7 @@ class AcrossLiteBinary < Plugin
         if n > 0 and (v = rtbl.rebus[n])
           x, y = i % xw.width, i / xw.width
           cell = xw.solution[y][x]
-          cell.rebus_char = cell.solution[0]
-          cell.solution = v[0]
+          cell.solution = Rebus.new(v[0])
         end
       end
     end
@@ -239,7 +262,7 @@ class AcrossLiteBinary < Plugin
   def write_rtbl(e)
     e.rebus.keys.sort.map {|x|
       x.to_s.rjust(2) + ":" + e.rebus[x][0] + ";"
-    }.join + "\0"
+    }.join
   end
 
   def read_gext(e)
@@ -259,9 +282,13 @@ class AcrossLiteBinary < Plugin
   end
 
   def write_extensions
-    extensions.map {|e|
+    xw.extensions.map {|e|
+      e.data = self.send(:"write_#{e.section.downcase}", e)
+      e.len = e.data.length
+      e.data += "\0"
+      e.checksum = Checksum.of_string(e.data)
       [e.section, e.len, e.checksum].pack(EXT_HEADER_FORMAT) +
-        self.send(:"write_#{e.section.downcase}", e)
+        e.data
     }.join
   end
 
@@ -323,13 +350,13 @@ class AcrossLiteText < Plugin
 
   def initialize
     @xw = XWord.new
-    @rebus = {}
   end
 
   def read(data)
     s = data.each_line.map(&:strip)
-    # first line must be <ACROSS PUZZLE>
-    check("Could not recognise Across Lite text file") { s.shift == "<ACROSS PUZZLE>" }
+    # first line must be <ACROSS PUZZLE> or <ACROSS PUZZLE V2>
+    xw.version = { "<ACROSS PUZZLE>" => 1, "<ACROSS PUZZLE V2>" => 2 }[s.shift]
+    check("Could not recognise Across Lite text file") { !xw.version.nil? }
     header, section = "START", []
     s.each do |line|
       if line =~ /^<(.*)>/
@@ -348,7 +375,7 @@ class AcrossLiteText < Plugin
     @xw = xw
 
     # scan the grid for rebus squares and replace them with lookup keys
-    extract_rebus
+    xw.encode_rebus!
 
     sections = [
       ['TITLE', [xw.title]],
@@ -361,7 +388,7 @@ class AcrossLiteText < Plugin
       ['DOWN', xw.down_clues],
       ['NOTEPAD', xw.notes.to_s.split("\n")]
     ]
-    out = ["<ACROSS PUZZLE>"]
+    out = ["<ACROSS PUZZLE V2>"]
     sections.each do |h, s|
       next if s.nil? || s.empty?
       out << "<#{h}>"
@@ -391,20 +418,21 @@ class AcrossLiteText < Plugin
       xw.solution = unpack_solution xw, section.join
     when "REBUS"
       check { section.length > 0 }
+      check("Text format v1 does not support <REBUS>") {xw.version == 2}
       # flag list (currently MARK or nothing)
       xw.mark = section[0] == "MARK;"
       section.shift if xw.mark
       section.each do |line|
         check { line =~ /^.+:.+:.$/ }
         sym, long, short = line.split(':')
-        rebus[sym] = [long, short]
         xw.each_cell do |c|
           if c.solution == sym
-            c.solution = long
-            c.rebus_char = short
+            c.solution = Rebus.new(long, short)
           end
         end
       end
+      xw.encode_rebus!
+
     when "ACROSS"
       xw.across_clues = section
     when "DOWN"
@@ -418,25 +446,11 @@ class AcrossLiteText < Plugin
     xw.to_array(GRID_CHARS).map(&:join)
   end
 
-  def extract_rebus
-    k = 0
-    xw.each_cell do |c|
-      if c.rebus?
-        s = c.solution
-        unless rebus[s]
-          k += 1
-          rebus[s] = [k, c.rebus_char]
-        end
-        c.solution = k.to_s
-      end
-    end
-  end
-
   def write_rebus
     out = []
     out << "MARK;" if xw.mark
-    rebus.keys.sort.each do |long|
-      key, short = rebus[long]
+    xw.rebus.keys.sort.each do |long|
+      key, short = xw.rebus[long]
       out << "#{key}:#{long}:#{short}"
     end
     out

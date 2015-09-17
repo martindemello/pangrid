@@ -7,12 +7,33 @@ def check(msg = "")
   raise PuzzleFormatError, msg unless yield
 end
 
-# solution = :black | :null | char | string
+# symbol: the symbol representing the solution in the grid
+#         (populated by xword.encode_rebus!)
+# solution: the word the symbol represents
+# display_char: optional character representation of a rebus square
+class Rebus
+  attr_accessor :symbol, :solution, :display_char
+
+  def initialize(str, char = nil)
+    @symbol = nil
+    @solution = str
+    @display_char = char || str[0]
+  end
+
+  def to_char
+    symbol || display_char
+  end
+
+  def inspect
+    "[#{symbol}|#{solution}]"
+  end
+end
+
+# solution = :black | :null | char | Rebus
 # number = int
 # borders = [:left, :right, :top, :bottom]
-# rebus_char: optional character representation of a rebus square
 class Cell
-  attr_accessor :solution, :number, :borders, :rebus_char
+  attr_accessor :solution, :number, :borders
 
   def initialize(**args)
     args.each {|k,v| self.send :"#{k}=", v}
@@ -27,15 +48,20 @@ class Cell
   end
 
   def rebus?
-    solution.is_a?(String) && solution !~ /^[A-Z]$/
+    solution.is_a?(Rebus)
   end
 
   def to_char
-    rebus? ? (rebus_char || solution[0]) : solution
+    rebus? ? solution.to_char : solution
   end
 
   def inspect
-    black? ? '#' : to_char
+    case solution
+    when :black; '#'
+    when :null; '.'
+    when Rebus; solution.inspect
+    else; solution
+    end
   end
 end
 
@@ -43,6 +69,7 @@ end
 # width, height = int
 # across_clues = string[]
 # down_clues = string[]
+# rebus = { solution => [int, rebus_char] }
 class XWord < OpenStruct
   # Clue numbering
   def black?(x, y)
@@ -95,10 +122,31 @@ class XWord < OpenStruct
           opts[s]
         when String
           block_given? ? (yield c) : c.to_char
+        when Rebus
+          block_given? ? (yield c) : c.to_char
         else
           raise PuzzleFormatError, "Unrecognised cell #{c}"
         end
       }
     }
+  end
+
+  # Collect a hash of rebus solutions, each mapped to an integer.
+  def encode_rebus!
+    k = 0
+    self.rebus = {}
+    each_cell do |c|
+      if c.rebus?
+        r = c.solution
+        if self.rebus[s]
+          sym, char = self.rebus[s]
+          r.symbol = sym.to_s
+        else
+          k += 1
+          self.rebus[r.solution] = [k, r.display_char]
+          r.symbol = k.to_s
+        end
+      end
+    end
   end
 end
