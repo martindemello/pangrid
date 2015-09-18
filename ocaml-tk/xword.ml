@@ -1,4 +1,5 @@
 open Types
+open Core_kernel.Std
 
 let make rows cols =
   let sq = { cell = Empty; num = 0 } in
@@ -40,6 +41,13 @@ let start_down xw x y =
   (non_boundary xw x y) &&
   (non_boundary xw x (y + 1))
 
+let iteri xw f =
+  for y = 0 to xw.rows - 1 do
+    for x = 0 to xw.cols - 1 do
+      f x y (get_cell xw x y)
+    done
+  done
+
 let renumber ?(on_ac=ignore) ?(on_dn=ignore) xw =
   let n = ref 1 in
   for y = 0 to xw.rows - 1 do
@@ -55,6 +63,31 @@ let renumber ?(on_ac=ignore) ?(on_dn=ignore) xw =
         set_num xw x y 0;
     done
   done
+
+(* Update the 'symbol' field in every rebus square, so that cells
+ * with the same solution have the same symbol. Symbols are
+ * integers from 1..
+ *
+ * Returns a map of solution -> rebus {solution; symbol; ...}
+ *)
+let encode_rebus xw =
+  let m = ref (String.Map.empty) in
+  let k = ref 0 in
+  iteri xw (fun x y c ->
+      match c with
+      | Rebus r -> begin
+          match Map.find !m r.solution with
+          | Some sr -> set_cell xw x y (Rebus sr)
+          | None -> begin
+              k := !k + 1;
+              let nr = { r with symbol = !k } in
+              set_cell xw x y (Rebus nr);
+              m := Map.add !m ~key:r.solution ~data:r
+            end
+        end
+      | _ -> ()
+    );
+    m
 
 let clue_numbers xw =
   let ac = ref [] in
@@ -72,7 +105,7 @@ let inspect_grid xw =
         | Black -> "#"
         | Empty -> "."
         | Letter c -> c
-        | Rebus (s, c) -> c
+        | Rebus r -> r.display_char
       in
       print_string c;
       print_string " "
@@ -84,9 +117,9 @@ let inspect_clues xw =
   let ac, dn = clue_numbers xw in
   let print_clue i clue = Printf.printf "%d. %s\n" i clue in
   print_endline "Across";
-  List.iter2 print_clue ac xw.clues.across;
+  List.iter2_exn ac xw.clues.across print_clue;
   print_endline "Down";
-  List.iter2 print_clue dn xw.clues.down
+  List.iter2_exn dn xw.clues.down print_clue
 
 let inspect xw =
   inspect_grid xw;

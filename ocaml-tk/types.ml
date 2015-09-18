@@ -1,6 +1,12 @@
 type letter = string
 
-type cell = Black | Empty | Letter of letter | Rebus of string * letter
+type rebus = {
+  symbol: int;
+  solution: string;
+  display_char: string
+}
+
+type cell = Black | Empty | Letter of letter | Rebus of rebus
 
 type square = {
   cell : cell;
@@ -20,4 +26,3 @@ type xword = {
   grid : square array array;
   clues : clues;
 }
-
