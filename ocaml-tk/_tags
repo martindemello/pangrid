@@ -2,7 +2,9 @@ true: thread,debug
 
 "lib/": traverse
 
+true: package(core_kernel)
+
 <gui.*>: package(labltk)
-<**/puz.*>: package(bitstring), package(unix), package(bitstring.syntax), package(str), package(core_kernel)
-<**/puz.*>: syntax(bitstring)
+<**/puz.*>: package(unix), package(str), package(core_kernel), package(bitstring)
+<**/*_binreader.*>: package(bitstring.syntax), syntax(bitstring)
 <xword.*>: package(core_kernel)
