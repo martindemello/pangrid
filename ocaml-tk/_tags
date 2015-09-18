@@ -1,7 +1,5 @@
 true: thread,debug
 
-"lib/": traverse
-
 true: package(core_kernel)
 
 <gui.*>: package(labltk)
