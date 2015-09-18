@@ -12,52 +12,29 @@ let file_magic = Str.regexp_string "ACROSS&DOWN"
 let blacksquare = "."
 let extension_header_format = "< 4s  H H "
 
-(* opal parsers *)
-let number = many1 digit => implode % int_of_string
-let eos = exactly '\000'
-let spc = exactly ' '
-let word = many1 letter
+let fail_read ex =
+  let msg = Printf.sprintf "Could not read extension %s" ex.section in
+  raise (PuzzleFormatError msg)
 
 let process_extension ex =
-  let validate_extension ex =
-    List.mem ["GRBS"; "RTBL"; "GEXT"; "LTIM"] ex.section
-  in
+  print_endline ex.section;
+  match ex.section with
+  | "RTBL" -> begin
+      match Puz_match.match_rtbl ex.data with
+      | None -> fail_read ex
+      | Some xs -> `RTBL (List.map xs (fun x -> (x#symbol, x#word)))
 
-  let read_ltim s =
-    let ltim = number >>= fun i ->
-        (exactly ',') >>
-        number >>= fun j ->
-        eos >>
-        return (i, j)
-    in
-    let read s =
-      let input = LazyStream.of_string s in
-      match parse ltim input with
-      | Some (i, j) -> Printf.printf "(%d, %d)" i j
-      | None -> print_endline "NO LTIM"
-    in
-    read s
-  in
-  print_endline ex.section
-(*
-  let read_rtbl s =
-    let d = ((spc <|> digit) <~> count 1 digit) => implode in
-    let entry = d << (exactly ':) <~> (count 1 word) in
-    let rtbl = sep_by1 entry (exactly ";") in
-    let read s =
-      let input = LazyStream.of_string s in
-      match parse rtbl input with
-      | Some (i, j) -> Printf.printf "(%d, %s)" i j
-      | None -> print_endline "NO RTBL"
-    in
-    read s
-
-  in
-  if ex.section = "RTBL" then read_rtbl ex.data
-*)
+    end
+  | "GRBS" -> `GRBS
+  | "GEXT" -> `GEXT
+  | "LTIM" -> begin
+      match Puz_match.match_ltim ex.data with
+      | None -> fail_read ex
+      | Some (x, y) -> `LTIM (x, y)
+    end
+  |_ -> fail_read ex
 
 
-  
 
 let load_puzzle data =
   (* Files may contain some data before the start of the puzzle.
@@ -119,5 +96,6 @@ let _ =
   let data = In_channel.read_all fname in
   let puz = load_puzzle data in
   let xw = to_xw puz in
-  Xword.inspect xw;
-  List.iter puz.extensions process_extension
+  (*Xword.inspect xw;*)
+  ignore xw;
+  List.map puz.extensions process_extension;

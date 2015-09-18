@@ -5,6 +5,7 @@ true: thread,debug
 true: package(core_kernel)
 
 <gui.*>: package(labltk)
-<**/puz.*>: package(unix), package(str), package(core_kernel), package(bitstring)
+<**/puz.*>: package(unix), package(str), package(core_kernel), package(bitstring), package(mikmatch_pcre)
 <**/*_binreader.*>: package(bitstring.syntax), syntax(bitstring)
+<**/*_match.*>: package(mikmatch_pcre), syntax(camlp4o)
 <xword.*>: package(core_kernel)

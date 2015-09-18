@@ -6,7 +6,11 @@ type solution_state = [`Locked | `Unlocked]
 
 type grid_markup = [`Default | `PreviouslyIncorrect | `Incorrect | `Revealed | `Circled]
 
-type extension_type = [`RebusSolutions | `RebusFill | `Timer | `Markup]
+type extension_type = [ `RTBL of (int * string) list
+                      | `GRBS
+                      | `GEXT
+                      | `LTIM of (int * int)
+                      ]
 
 type extension = {
   section: string;
