@@ -1,0 +1,5 @@
+#!/bin/env ruby
+
+require 'pangrid'
+
+Pangrid.run_command_line

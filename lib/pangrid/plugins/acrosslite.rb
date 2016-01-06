@@ -8,7 +8,8 @@
 #   AcrossLiteText : read, write
 
 require 'ostruct'
-require_relative '../xw'
+
+module Pangrid
 
 GRID_CHARS = {:black => '.', :null => '.'}
 
@@ -41,7 +42,6 @@ class Checksum
     add_string (s + "\0") unless s.empty?
   end
 end
-
 
 # String -> Cell[][]
 def unpack_solution(xw, s)
@@ -456,3 +456,5 @@ class AcrossLiteText < Plugin
     out
   end
 end
+
+end # module Pangrid

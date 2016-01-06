@@ -6,7 +6,7 @@
 # provides:
 #   ExcelXSLX : write
 
-require_relative '../xw'
+module Pangrid
 
 require_for_plugin 'excel', ['axlsx']
 
@@ -62,3 +62,5 @@ class ExcelXSLX < Plugin
     out.read
   end
 end
+
+end # module Pangrid

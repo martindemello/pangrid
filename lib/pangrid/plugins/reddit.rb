@@ -1,6 +1,6 @@
 # Markup used by crosswords.reddit.com
 
-require_relative '../xw'
+module Pangrid
 
 module RedditWriter
   def write_line(row)
@@ -58,3 +58,5 @@ class RedditBlank < Plugin
     end
   end
 end
+
+end # module Pangrid

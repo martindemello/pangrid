@@ -21,8 +21,6 @@
 # provides:
 #   CSV: read
 
-require_relative '../xw'
-
 require 'csv'
 
 module Pangrid

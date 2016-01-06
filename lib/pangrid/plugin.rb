@@ -1,3 +1,7 @@
+require_relative 'xw'
+
+module Pangrid
+
 class PluginDependencyError < StandardError
   attr_accessor :name, :gems
 
@@ -7,7 +11,7 @@ class PluginDependencyError < StandardError
 end
 
 # Load all the gem dependencies of a plugin
-def require_for_plugin(name, gems)
+def self.require_for_plugin(name, gems)
   missing = []
   gems.each do |gem|
     begin
@@ -23,15 +27,11 @@ def require_for_plugin(name, gems)
   end
 end
 
-# utility functions
-def class_to_name(str)
-  str.gsub(/.*:/, '').
-    gsub(/([A-Z]+)([A-Z][a-z])/,'\1-\2').
-    gsub(/([a-z\d])([A-Z])/,'\1-\2').
-    downcase
-end
-
 class Plugin
+  # let all "top level functions" defined directly within the
+  # namespace module be available to plugin code.
+  include Pangrid
+
   REGISTRY = {}
   FAILED = []
   MISSING_DEPS = {}
@@ -93,4 +93,14 @@ class Plugin
   def self.get(name)
     REGISTRY[name]
   end
+
+  # utility functions
+  def self.class_to_name(str)
+    str.gsub(/.*:/, '').
+      gsub(/([A-Z]+)([A-Z][a-z])/,'\1-\2').
+      gsub(/([a-z\d])([A-Z])/,'\1-\2').
+      downcase
+  end
 end
+
+end # module Pangrid

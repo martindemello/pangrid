@@ -6,7 +6,7 @@
 # provides:
 #   Text : write
 
-require_relative '../xw'
+module Pangrid
 
 class Text < Plugin
   def write(xw)
@@ -30,3 +30,5 @@ class Text < Plugin
     numbers.zip(clues).map {|n, c| " "*indent + "#{n}. #{c}"}.join("\n")
   end
 end
+
+end # module Pangrid

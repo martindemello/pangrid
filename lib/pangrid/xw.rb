@@ -1,5 +1,7 @@
 require 'ostruct'
 
+module Pangrid
+
 class PuzzleFormatError < StandardError
 end
 
@@ -150,3 +152,5 @@ class XWord < OpenStruct
     end
   end
 end
+
+end # module Pangrid
