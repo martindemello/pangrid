@@ -10,24 +10,24 @@ module Pangrid
 
 require_for_plugin 'excel', ['axlsx']
 
-# styles
-STYLES = {
-  :black => {:bg_color => "00"},
-  :white => {
-    :bg_color => "FF", :fg_color => "00",
-    :alignment => { :horizontal=> :right },
-    :border => Axlsx::STYLE_THIN_BORDER
-  }
-}
-
-# cobble a cell number together out of unicode superscript chars
-SUPERSCRIPTS = %w(⁰ ¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹)
-
-def format_number(n)
-  n.to_s.split(//).map {|c| SUPERSCRIPTS[c.to_i]}.join("").rjust(3)
-end
-
 class ExcelXSLX < Plugin
+  # styles
+  STYLES = {
+    :black => {:bg_color => "00"},
+    :white => {
+      :bg_color => "FF", :fg_color => "00",
+      :alignment => { :horizontal=> :right },
+      :border => Axlsx::STYLE_THIN_BORDER
+    }
+  }
+
+  # cobble a cell number together out of unicode superscript chars
+  SUPERSCRIPTS = %w(⁰ ¹ ² ³ ⁴ ⁵ ⁶ ⁷ ⁸ ⁹)
+
+  def format_number(n)
+    n.to_s.split(//).map {|c| SUPERSCRIPTS[c.to_i]}.join("").rjust(3)
+  end
+
   def write(xw)
     xw.number
     rows = xw.to_array(:black => " ", :null => " ") {|c|

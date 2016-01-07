@@ -1,4 +1,5 @@
 require_relative 'xw'
+require_relative 'utils'
 
 module Pangrid
 
@@ -28,9 +29,7 @@ def self.require_for_plugin(name, gems)
 end
 
 class Plugin
-  # let all "top level functions" defined directly within the
-  # namespace module be available to plugin code.
-  include Pangrid
+  include PluginUtils
 
   REGISTRY = {}
   FAILED = []

@@ -5,10 +5,6 @@ module Pangrid
 class PuzzleFormatError < StandardError
 end
 
-def check(msg = "")
-  raise PuzzleFormatError, msg unless yield
-end
-
 # symbol: the symbol representing the solution in the grid
 #         (populated by xword.encode_rebus!)
 # solution: the word the symbol represents

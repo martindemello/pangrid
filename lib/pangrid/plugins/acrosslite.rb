@@ -43,30 +43,34 @@ class Checksum
   end
 end
 
-# String -> Cell[][]
-def unpack_solution(xw, s)
-  s.each_char.map {|c|
-    Cell.new(:solution => c == '.' ? :black : c)
-  }.each_slice(xw.width).to_a
-end
+module AcrossLiteUtils
+  # String -> Cell[][]
+  def unpack_solution(xw, s)
+    s.each_char.map {|c|
+      Cell.new(:solution => c == '.' ? :black : c)
+    }.each_slice(xw.width).to_a
+  end
 
-# {xw | solution = Cell[][]} -> String
-def pack_solution(xw)
-  # acrosslite doesn't support non-rectangular grids, so map null squares to
-  # black too
-  xw.to_array(GRID_CHARS).map(&:join).join
-end
+  # {xw | solution = Cell[][]} -> String
+  def pack_solution(xw)
+    # acrosslite doesn't support non-rectangular grids, so map null squares to
+    # black too
+    xw.to_array(GRID_CHARS).map(&:join).join
+  end
 
-# {xw | solution = Cell[][]} -> String
-def empty_fill(xw)
-  # when converting from another format -> binary we won't typically have fill
-  # information, since that is an internal property of the acrosslite player
-  grid = xw.to_array(GRID_CHARS) {|c| '-'}
-  grid.map(&:join).join
+  # {xw | solution = Cell[][]} -> String
+  def empty_fill(xw)
+    # when converting from another format -> binary we won't typically have fill
+    # information, since that is an internal property of the acrosslite player
+    grid = xw.to_array(GRID_CHARS) {|c| '-'}
+    grid.map(&:join).join
+  end
 end
 
 # Binary format
 class AcrossLiteBinary < Plugin
+  include AcrossLiteUtils
+
   # crossword, checksums
   attr_accessor :xw, :cs
 
@@ -346,6 +350,8 @@ end
 
 # Text format
 class AcrossLiteText < Plugin
+  include AcrossLiteUtils
+
   attr_accessor :xw, :rebus
 
   def initialize
