@@ -16,7 +16,7 @@ module RedditWriter
   end
 
   def format_clues(numbers, clues, indent)
-    numbers.zip(clues).map {|n, c| " "*indent + "#{n}. #{c}"}.join("\n\n")
+    numbers.zip(clues).map {|n, c| " "*indent + "#{n}\\. #{c}"}.join("\n\n")
   end
 
   def write_clues(xw, across, down)
