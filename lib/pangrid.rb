@@ -5,7 +5,7 @@ require_relative 'pangrid/plugin'
 module Pangrid
   def self.run_command_line
     # command line options
-    opts = Trollop::options do
+    p = Trollop::Parser.new do
       opt :from, "Format to convert from", :type => :string
       opt :to, "Format to convert to", :type => :string
       opt :in, "Input file", :type => :string
@@ -13,7 +13,15 @@ module Pangrid
       opt :list, "List available format plugins"
     end
 
-    run opts
+    Trollop::with_standard_exception_handling p do
+      opts = p.parse ARGV
+
+      if opts[:list] || [:from, :to, :in, :out].all? {|k| opts[k]}
+        run opts
+      else
+        p.educate
+      end
+    end
   end
 
   def self.run(opts)
