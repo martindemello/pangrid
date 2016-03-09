@@ -15,11 +15,12 @@ spec = Gem::Specification.new do |s|
 
   # Change these as appropriate
   s.name              = "pangrid"
-  s.version           = "0.1.0"
+  s.version           = "0.2.0"
   s.summary           = "A crossword file format converter"
   s.author            = "Martin DeMello"
   s.email             = "martindemello@gmail.com"
   s.homepage          = "https://github.com/martindemello/pangrid"
+  s.license           = "MIT"
 
   s.has_rdoc          = true
   s.extra_rdoc_files  = %w(README)
