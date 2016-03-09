@@ -2,6 +2,8 @@ require "rubygems"
 require "rubygems/package_task"
 require "rdoc/task"
 
+require_relative "lib/pangrid/version"
+
 task :default => :package do
   puts "Don't forget to write some tests!"
 end
@@ -15,7 +17,7 @@ spec = Gem::Specification.new do |s|
 
   # Change these as appropriate
   s.name              = "pangrid"
-  s.version           = "0.2.0"
+  s.version           = Pangrid::VERSION
   s.summary           = "A crossword file format converter"
   s.author            = "Martin DeMello"
   s.email             = "martindemello@gmail.com"

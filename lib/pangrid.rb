@@ -1,5 +1,6 @@
 require_relative 'deps/trollop'
 
+require_relative 'pangrid/version'
 require_relative 'pangrid/plugin'
 require_relative 'pangrid/frontend/webrick'
 
@@ -7,6 +8,7 @@ module Pangrid
   def self.run_command_line
     # command line options
     p = Trollop::Parser.new do
+      version "pangrid #{VERSION}"
       opt :from, "Format to convert from", :type => :string
       opt :to, "Format to convert to", :type => :string
       opt :in, "Input file", :type => :string
