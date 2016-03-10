@@ -1,0 +1,14 @@
+Install ruby for your platform, if you don't have it.
+
+https://www.ruby-lang.org/en/documentation/installation/
+
+Then you can install the existing pangrid gem
+
+$ gem install pangrid
+
+or, if installing from source
+
+$ rake package
+$ gem install pkg/pangrid-<version>.gem
+
+You will also need to ensure that rubygems's bin directory is in your path.
