@@ -1,0 +1,9 @@
+# [0.2.0] : 2016-03-08
+
+Add a web frontend.
+
+# [0.1.0] : 2016-01-09
+
+Initial gem package.
+
+Working plugin mechanism and commandline frontend.
