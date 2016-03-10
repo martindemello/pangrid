@@ -1,0 +1,22 @@
+<html>
+  <body>
+    <form method="POST" action="convert" enctype="multipart/form-data">
+      <input type="file" name="filedata" />
+      <select name="from">
+        <option value="across-lite-binary">AcrossLite binary (.puz)</option>
+        <option value="across-lite-text">AcrossLite text</option>
+      </select>
+      &rarr;
+      <select name="to">
+        <option value="reddit-blank">Reddit (blank)</option>
+        <option value="reddit-filled">Reddit (filled)</option>
+        <option value="text">Text</option>
+      </select>
+      <input type="submit" value="Convert" />
+    </form>
+    <hr>
+    <div>
+      <textarea rows=40 cols=80 readonly>%s</textarea>
+    </div>
+  </body>
+</html>

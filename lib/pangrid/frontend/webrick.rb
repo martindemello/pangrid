@@ -2,36 +2,15 @@ require "webrick"
 
 module Pangrid
 
-FORM = <<HERE
-<html>
-  <body>
-    <form method="POST" enctype="multipart/form-data">
-      <input type="file" name="filedata" />
-      <select name="from">
-        <option value="across-lite-binary">AcrossLite binary (.puz)</option>
-        <option value="across-lite-text">AcrossLite text</option>
-      </select>
-      &rarr;
-      <select name="to">
-        <option value="reddit-blank">Reddit (blank)</option>
-        <option value="reddit-filled">Reddit (filled)</option>
-        <option value="text">Text</option>
-      </select>
-      <input type="submit" />
-    </form>
-    <hr>
-    <div>
-      <pre>%s</pre>
-    </div>
-  </body>
-</html>
-HERE
+TEMPLATE_DIR = File.dirname(File.expand_path(__FILE__)) + '/../data'
+TEMPLATE = TEMPLATE_DIR + '/webform.html'
 
 class Servlet < WEBrick::HTTPServlet::AbstractServlet
   def do_GET (request, response)
+    template = IO.read(TEMPLATE)
     response.status = 200
     response.content_type = "text/html"
-    response.body = FORM % ""
+    response.body = template % ""
   end
 
   def do_POST(request, response)
@@ -48,9 +27,10 @@ class Servlet < WEBrick::HTTPServlet::AbstractServlet
       out = e.inspect
     end
     
+    template = IO.read(TEMPLATE)
     response.status = 200
     response.content_type = "text/html"
-    response.body = FORM % WEBrick::HTMLUtils.escape(out)
+    response.body = template % out
   end
 end
 
