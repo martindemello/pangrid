@@ -147,6 +147,31 @@ class XWord < OpenStruct
       end
     end
   end
+
+  def inspect_grid
+    number
+    solution.map {|row|
+      row.map {|c|
+        s = c.solution
+        o = case s
+        when :black
+          "#"
+        when :null
+          "."
+        when String
+          c.to_char
+        when Rebus
+          c.to_char
+        else
+          raise PuzzleFormatError, "Unrecognised cell #{c}"
+        end
+        if c.number && c.number > 0
+          o = "#{c.number} #{o}"
+        end
+        o = o.rjust(4)
+      }.join("|")
+    }.join("\n")
+  end
 end
 
 end # module Pangrid
