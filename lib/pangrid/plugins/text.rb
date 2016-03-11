@@ -11,7 +11,7 @@ module Pangrid
 class Text < Plugin
   def write(xw)
     across, down = xw.number
-    rows = xw.to_array(:black => '#', :null => ' ')
+    rows = xw.to_array(:black => '#', :null => '.')
     grid = rows.map(&:join).join("\n") + "\n"
     ac = "Across:\n\n" + format_clues(across, xw.across_clues, 2)
     dn = "Down:\n\n" + format_clues(down, xw.down_clues, 2)
