@@ -11,7 +11,8 @@ require 'ostruct'
 
 module Pangrid
 
-GRID_CHARS = {:black => '.', :null => '.'}
+GRID_CHARS = {:black => '.', :null => '?'}
+FILL_CHARS = {:black => '.', :null => '-'}
 
 # CRC checksum for binary format
 class Checksum
@@ -62,7 +63,7 @@ module AcrossLiteUtils
   def empty_fill(xw)
     # when converting from another format -> binary we won't typically have fill
     # information, since that is an internal property of the acrosslite player
-    grid = xw.to_array(GRID_CHARS) {|c| '-'}
+    grid = xw.to_array(FILL_CHARS) {|c| '-'}
     grid.map(&:join).join
   end
 end
@@ -138,6 +139,7 @@ class AcrossLiteBinary < Plugin
 
     # fill in some fields that might not be present (checksums needs this)
     pack_clues
+    xw.clues = xw.clues.map(&:to_s)
     xw.n_clues = xw.clues.length
     xw.fill ||= empty_fill(xw)
     xw.puzzle_type ||= 1
@@ -145,6 +147,9 @@ class AcrossLiteBinary < Plugin
     xw.version = "1.3"
     xw.notes ||= ""
     xw.extensions ||= []
+    xw.title ||= ""
+    xw.author ||= ""
+    xw.copyright ||= ""
 
     # extensions
     xw.encode_rebus!
@@ -382,6 +387,15 @@ class AcrossLiteText < Plugin
 
     # scan the grid for rebus squares and replace them with lookup keys
     xw.encode_rebus!
+
+    # fill in dummy clues if none exist
+    across, down = xw.number
+    if xw.across_clues.empty?
+      xw.across_clues = ["(no clue)"]*across.length
+    end
+    if xw.down_clues.empty?
+      xw.down_clues = ["(no clue)"]*down.length
+    end
 
     sections = [
       ['TITLE', [xw.title]],
