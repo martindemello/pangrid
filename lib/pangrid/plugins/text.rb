@@ -27,7 +27,7 @@ class Text < Plugin
   end
 
   def format_clues(numbers, clues, indent)
-    numbers.zip(clues).map {|n, c| " "*indent + "#{n}. #{c}"}.join("\n")
+    numbers.zip(clues).map {|n, c| " "*indent + "#{n.to_s.rjust(2)}. #{c}"}.join("\n")
   end
 end
 

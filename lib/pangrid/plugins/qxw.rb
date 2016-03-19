@@ -35,9 +35,9 @@ class Qxw < Plugin
     check(QXW_GRID_ERROR) { xw.solution.all? {|i| i.compact.length == xw.width} }
 
     # Placeholder clues
-    across, down = xw.number
-    xw.across_clues = across.map {|i| "Placeholder for #{i} across" }
-    xw.down_clues = down.map {|i| "Placeholder for #{i} down" }
+    _, _, words_a, words_d = xw.number(true)
+    xw.across_clues = words_a.map {|i| "[#{i}]" }
+    xw.down_clues = words_d.map {|i| "[#{i}]" }
 
     xw
   end

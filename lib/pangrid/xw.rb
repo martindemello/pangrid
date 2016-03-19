@@ -53,6 +53,15 @@ class Cell
     rebus? ? solution.to_char : solution
   end
 
+  def to_w
+    case solution
+    when :black; '#'
+    when :null; '.'
+    when Rebus; solution.inspect
+    else; solution
+    end
+  end
+
   def inspect
     case solution
     when :black; '#'
@@ -86,19 +95,40 @@ class XWord < OpenStruct
     boundary?(x, y - 1) && !boundary?(x, y) && !boundary?(x, y + 1)
   end
 
-  def number
+  # Word starting from a square
+  def word_from(x, y, dir)
+    s = ""
+    while !boundary?(x, y) do
+      s += solution[y][x].to_w
+      if dir == :across
+        x += 1
+      else
+        y += 1
+      end
+    end
+    s
+  end
+
+  def number(words = false)
     n, across, down = 1, [], []
+    words_a, words_d = [], []
     (0 ... height).each do |y|
       (0 ... width).each do |x|
-        across << n if across? x, y
-        down << n if down? x, y
+        if across? x, y
+          across << n
+          words_a << word_from(x, y, :across)
+        end
+        if down? x, y
+          down << n
+          words_d << word_from(x, y, :down)
+        end
         if across.last == n || down.last == n
           solution[y][x].number = n
           n += 1
         end
       end
     end
-    [across, down]
+    words ? [across, down, words_a, words_d] : [across, down]
   end
 
   def each_cell
@@ -137,7 +167,7 @@ class XWord < OpenStruct
       if c.rebus?
         r = c.solution
         if self.rebus[s]
-          sym, char = self.rebus[s]
+          sym, _ = self.rebus[s]
           r.symbol = sym.to_s
         else
           k += 1
