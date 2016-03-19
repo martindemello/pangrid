@@ -1,3 +1,9 @@
+# [0.3.1] : 2016-03-18
+
+* Add a qxw grid reader.
+  Since qxw doesn't have clue entry, answers from the grid are used as
+  placeholder clues.
+
 # [0.3.0] : 2016-03-10
 
 * Add a reddit input plugin
