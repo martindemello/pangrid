@@ -1,9 +1,15 @@
+# [0.3.0] : 2016-03-10
+
+* Add a reddit input plugin
+
+* Support empty grids in acrosslite output
+
 # [0.2.0] : 2016-03-08
 
-Add a web frontend.
+* Add a web frontend.
 
 # [0.1.0] : 2016-01-09
 
-Initial gem package.
+* Initial gem package.
 
-Working plugin mechanism and commandline frontend.
+* Working plugin mechanism and commandline frontend.
