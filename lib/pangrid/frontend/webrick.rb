@@ -26,11 +26,24 @@ class Servlet < WEBrick::HTTPServlet::AbstractServlet
     rescue Exception => e
       out = e.inspect
     end
-    
-    template = IO.read(TEMPLATE)
-    response.status = 200
-    response.content_type = "text/html"
-    response.body = template % out
+
+    case request.path
+    when "/"
+      template = IO.read(TEMPLATE)
+      response.status = 200
+      response.content_type = "text/html"
+      response.body = template % out
+    when "/json"
+      if request.query["to"] == "json"
+        response.status = 200
+        response.content_type = "text/json"
+        response.body = out
+      else
+        response.status = 200
+        response.content_type = "text/json"
+        response.body = '{ "error" : "non-json format requested" }'
+      end
+    end
   end
 end
 
