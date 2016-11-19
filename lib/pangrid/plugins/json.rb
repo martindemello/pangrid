@@ -40,6 +40,36 @@ class Json < Plugin
 
     ::JSON.generate(h)
   end
+
+  def read(data)
+    json = ::JSON.parse(data)
+    xw = XWord.new
+
+    xw.height = json['rows']
+    xw.width = json['cols']
+    xw.solution = Array.new(xw.height) { Array.new(xw.width) }
+    json['cells'].each do |c|
+      cell = Cell.new
+      s = c['contents']
+      cell.solution =
+        case s
+        when ""; :null
+        when "#"; :black
+        else
+          if s.length == 1
+            s
+          else
+            Rebus.new s
+          end
+        end
+      x, y = c['x'], c['y']
+      xw.solution[y][x] = cell
+    end
+    xw.across_clues = json['across']
+    xw.down_clues = json['down']
+    xw
+  end
+
 end
 
 end
