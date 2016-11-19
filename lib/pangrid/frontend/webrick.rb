@@ -27,12 +27,18 @@ class Servlet < WEBrick::HTTPServlet::AbstractServlet
       out = e.inspect
     end
 
+    response.header['Access-Control-Allow-Origin'] = '*'
+
     case request.path
     when "/"
       template = IO.read(TEMPLATE)
       response.status = 200
       response.content_type = "text/html"
       response.body = template % out
+    when "/blob"
+      response.status = 200
+      response.content_type = "application/octet-stream"
+      response.body = out
     when "/json"
       if request.query["to"] == "json"
         response.status = 200
