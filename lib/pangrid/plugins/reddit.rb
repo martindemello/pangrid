@@ -34,6 +34,8 @@ end
 class RedditFilled < Plugin
   include RedditWriter
 
+  DESCRIPTION = "Reddit format (with filled squares)"
+
   def write(xw)
     write_xw(xw)
   end
@@ -47,6 +49,8 @@ end
 
 class RedditBlank < Plugin
   include RedditWriter
+
+  DESCRIPTION = "Reddit format (with blank squares)"
 
   def write(xw)
     write_xw(xw)

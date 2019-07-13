@@ -9,6 +9,9 @@
 module Pangrid
 
 class Text < Plugin
+
+  DESCRIPTION = "Basic text format (mostly for debugging)"
+
   def write(xw)
     across, down = xw.number
     rows = xw.to_array(:black => '#', :null => '.')

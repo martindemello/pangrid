@@ -75,6 +75,8 @@ class AcrossLiteBinary < Plugin
   # crossword, checksums
   attr_accessor :xw, :cs
 
+  DESCRIPTION = "AcrossLite binary format (.puz)"
+
   HEADER_FORMAT = "v A12 v V2 A4 v2 A12 c2 v3"
   HEADER_CHECKSUM_FORMAT = "c2 v3"
   EXT_HEADER_FORMAT = "A4 v2"
@@ -358,6 +360,8 @@ class AcrossLiteText < Plugin
   include AcrossLiteUtils
 
   attr_accessor :xw, :rebus
+
+  DESCRIPTION = "AcrossLite text format"
 
   def initialize
     @xw = XWord.new

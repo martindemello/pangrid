@@ -26,6 +26,9 @@ require 'csv'
 module Pangrid
 
 class CSV < Plugin
+
+  DESCRIPTION = "CSV reader (see source comments for format)"
+
   def read(data)
     s = ::CSV.parse(data)
     s.reject! {|row| row.compact.empty?}

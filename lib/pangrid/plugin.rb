@@ -35,6 +35,8 @@ class Plugin
   FAILED = []
   MISSING_DEPS = {}
 
+  DESCRIPTION = ""
+
   def self.inherited(subclass)
     name = class_to_name(subclass.name)
     #puts "Registered #{subclass} as #{name}"
@@ -62,13 +64,13 @@ class Plugin
 
   def self.list_all
     puts "-------------------------------------------------------"
-    puts "Available plugins:"
+    puts "Available plugins (F = from, T = to):"
     puts "-------------------------------------------------------"
     REGISTRY.keys.sort.each do |name|
       plugin = REGISTRY[name]
       provides = [:read, :write].select {|m| plugin.method_defined? m}
-      provides = provides.map {|m| {read: 'from', write: 'to'}[m]}
-      puts "  " + name + " [" + provides.join(", ") + "]"
+      provides = provides.map {|m| {read: 'F', write: 'T'}[m]}.join
+      puts "  #{name} [#{provides}]".ljust(30) + plugin.const_get(:DESCRIPTION)
     end
     if !MISSING_DEPS.empty?
       puts

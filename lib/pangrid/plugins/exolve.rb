@@ -44,6 +44,8 @@ end
 class ExolveFilled < Plugin
   include ExolveWriter
 
+  DESCRIPTION = "Exolve writer with solutions"
+
   def format_grid(xw)
     xw.to_array(:black => '.', :null => '0').map(&:join)
   end
@@ -51,6 +53,8 @@ end
 
 class ExolveBlank < Plugin
   include ExolveWriter
+
+  DESCRIPTION = "Exolve writer without solutions"
 
   def format_grid(xw)
     xw.to_array(:black => '.', :null => '0') {|c| 0}.map(&:join)

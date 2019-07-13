@@ -14,6 +14,9 @@ require 'json'
 module Pangrid
 
 class Json < Plugin
+
+  DESCRIPTION = "Simple JSON format"
+
   def write(xw)
     cells = []
     (0 ... xw.height).each do |y|

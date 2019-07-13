@@ -11,6 +11,9 @@ module Pangrid
 require_for_plugin 'excel', ['axlsx']
 
 class ExcelXSLX < Plugin
+
+  DESCRIPTION = "Excel writer. Useful to upload to google sheets."
+
   # styles
   STYLES = {
     :black => {:bg_color => "00"},

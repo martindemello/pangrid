@@ -5,6 +5,9 @@ module Pangrid
 QXW_GRID_ERROR = "Could not read grid from .qxw file"
 
 class Qxw < Plugin
+
+  DESCRIPTION = "QXW grid reader (rectangular grids only)"
+
   def read(data)
     xw = XWord.new
     lines = data.lines.map(&:chomp)
