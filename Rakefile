@@ -24,7 +24,6 @@ spec = Gem::Specification.new do |s|
   s.homepage          = "https://github.com/martindemello/pangrid"
   s.license           = "MIT"
 
-  s.has_rdoc          = true
   s.extra_rdoc_files  = %w(README)
   s.rdoc_options      = %w(--main README)
 
