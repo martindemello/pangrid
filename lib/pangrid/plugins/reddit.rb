@@ -92,6 +92,7 @@ class RedditBlank < Plugin
     #
     # we have to be careful about leading/trailing |s
     ix = lines.find_index {|row| row =~ /^[|\s-]+$/}
+    check("Could not find grid") { not ix.nil? }
     width = lines[ix].gsub(/\s/, '').split('|').reject(&:empty?).length
     lines = [lines[(ix - 1)]] + lines[(ix + 1) .. -1]
     grid = lines.take_while {|i| is_grid_row(i)}

@@ -33,7 +33,7 @@ module ExolveWriter
   end
 
   def format_clues(numbers, clues)
-    numbers.zip(clues).map {|n, c| "#{n.to_s.rjust(2)}. #{c}"}
+    numbers.zip(clues).map {|n, c| "#{n.to_s.rjust(2)} #{c}"}
   end
 
   def indent(lines)
