@@ -41,7 +41,71 @@ module ExolveWriter
   end
 end
 
+module ExolveReader
+  def read(data)
+    s = data.each_line.map(&:rstrip)
+    first = s.index('exolve-begin')
+    check("exolve-begin missing") { first }
+    last = s.index('exolve-end')
+    check("exolve-end missing") { last }
+    lines = s[(first + 1)...last]
+    xw = XWord.new
+    s = sections(lines)
+    s.each do |_, field, data|
+      if %w(title setter copyright prelude).include? field
+        xw[field] = data
+      elsif %w(height width).include? field
+        xw[field] = data.to_i
+      elsif %(across down).include? field
+        xw["#{field}_clues"] = data
+      elsif field == "grid"
+        xw.solution = parse_grid(data)
+      end
+    end
+    xw
+  end
+
+  def sections(lines)
+    headers = lines.each.with_index.map do |l, i|
+      m = l.match(/^(\s+)exolve-(\w+):(.*)$/)
+      if m
+        _, indent, field, data = m.to_a
+        [i, field, data.strip]
+      else
+        nil
+      end
+    end
+    headers.compact!
+    headers.push([lines.length, "", ""])
+    headers.each_cons(2) do |i, j|
+      if i[2].empty?
+        i[2] = lines[(i[0] + 1)...j[0]].map(&:strip)
+      end
+    end
+    headers.pop
+    headers
+  end
+
+  def parse_grid_char(char)
+    case char
+    when '0'; :null
+    when '.'; :black
+    else; char
+    end
+  end
+
+  def parse_grid(lines)
+    grid = lines.map(&:strip).map {|x| x.split(//)}
+    grid.map do |col|
+      col.map do |c|
+        Cell.new(:solution => parse_grid_char(c))
+      end
+    end
+  end
+end
+
 class ExolveFilled < Plugin
+  include ExolveReader
   include ExolveWriter
 
   DESCRIPTION = "Exolve writer with solutions"
