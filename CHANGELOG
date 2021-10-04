@@ -1,3 +1,9 @@
+# [0.5.0] : 2021-10-03
+
+* Add an exolve reader
+* Add a png thumbnail generator
+* Update to ruby 3.0, add webrick gem dependency
+
 # [0.4.1] : 2019-08-25
 
 * Minor fixes for reddit and exolve plugins
