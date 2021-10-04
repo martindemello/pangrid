@@ -139,6 +139,14 @@ class XWord < OpenStruct
     end
   end
 
+  def each_cell_with_coords
+    (0 ... height).each do |y|
+      (0 ... width).each do |x|
+        yield [x, y, solution[y][x]]
+      end
+    end
+  end
+
   # {:black => char, :null => char} -> Any[][]
   def to_array(opts = {})
     opts = {:black => '#', :null => ' '}.merge(opts)
