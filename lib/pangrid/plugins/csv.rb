@@ -40,7 +40,7 @@ class CSV < Plugin
     h = s.shift.map {|c| c.split(/:\s*/)}
     header = OpenStruct.new
     h.each do |k, v|
-      header[k.downcase] = v
+      header[k.downcase.strip] = v
     end
 
     header.clues = header.clues.to_i
