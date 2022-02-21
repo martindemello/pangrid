@@ -95,7 +95,7 @@ module ExolveReader
   end
 
   def parse_grid(lines)
-    grid = lines.map(&:strip).map {|x| x.split(//)}
+    grid = lines.map {|x| x.gsub(/\s/, '').split(//)}
     grid.map do |col|
       col.map do |c|
         Cell.new(:solution => parse_grid_char(c))
