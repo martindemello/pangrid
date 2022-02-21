@@ -1,3 +1,8 @@
+# [0.5.2] : 2022-02-20
+
+* Add settings for using the PNG writer as a library
+* Minor fix for exolve reader plugin
+
 # [0.5.1] : 2022-02-04
 
 * Minor fix for CSV reader plugin
