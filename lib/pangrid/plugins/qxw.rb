@@ -8,6 +8,42 @@ class Qxw < Plugin
 
   DESCRIPTION = "QXW grid reader (rectangular grids only)"
 
+  def read_black(xw, lines)
+    # Read black cells
+    grid = lines.select {|x| x =~ /^SQ /}
+    grid.each do |line|
+      parts = line.scan(/\w+/)
+      check(QXW_GRID_ERROR) { parts.length == 6 || parts.length == 7 }
+      _, col, row, _, _, b, _ = parts
+      col, row, b = col.to_i, row.to_i, b.to_i
+      next if b != 1
+      cell = Cell.new
+      cell.solution = :black
+      xw.solution[row] ||= []
+      xw.solution[row][col] = cell
+    end
+  end
+
+  def read_filled(xw, lines)
+    # Read filled cells
+    grid = lines.select {|x| x =~ /^SQCT /}
+    grid.each do |line|
+      parts = line.scan(/\w+/)
+      check(QXW_GRID_ERROR) { parts.length == 4 || parts.length == 5 }
+      _, col, row, d, c = parts
+      col, row, d = col.to_i, row.to_i, d.to_i
+      next if d != 0  # different char per direction, not supported for now
+      cell = Cell.new
+      if c == nil
+        cell.solution = :null
+      else
+        cell.solution = c
+      end
+      xw.solution[row] ||= []
+      xw.solution[row][col] = cell
+    end
+  end
+
   def read(data)
     xw = XWord.new
     lines = data.lines.map(&:chomp)
@@ -18,22 +54,8 @@ class Qxw < Plugin
     xw.width = w
     xw.height = h
     xw.solution = []
-    grid = lines.select {|x| x =~ /^SQ /}
-    grid.each do |line|
-      parts = line.scan(/\w+/)
-      check(QXW_GRID_ERROR) { parts.length == 6 || parts.length == 7 }
-      col, row, b, c = parts[1].to_i, parts[2].to_i, parts[5].to_i, parts[6]
-      cell = Cell.new
-      if b == 1
-        cell.solution = :black
-      elsif c == nil
-        cell.solution = :null
-      else
-        cell.solution = c
-      end
-      xw.solution[row] ||= []
-      xw.solution[row][col] = cell
-    end
+    read_filled(xw, lines)
+    read_black(xw, lines)
     check(QXW_GRID_ERROR) { xw.solution.length == xw.height }
     check(QXW_GRID_ERROR) { xw.solution.all? {|i| i.compact.length == xw.width} }
 
