@@ -1,3 +1,7 @@
+# [0.5.3] : 2024-11-27
+
+* Improve the qxw reader
+
 # [0.5.2] : 2022-02-20
 
 * Add settings for using the PNG writer as a library
