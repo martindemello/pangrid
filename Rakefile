@@ -1,12 +1,17 @@
 require "rubygems"
 require "rubygems/package_task"
 require "rdoc/task"
+require "rake/testtask"
 
 require_relative "lib/pangrid/version"
 
-task :default => :package do
-  puts "Don't forget to write some tests!"
+Rake::TestTask.new(:test) do |t|
+  t.libs << "test"
+  t.test_files = FileList["test/**/*_test.rb"]
+  t.warning = false
 end
+
+task :default => [:test, :package]
 
 # This builds the actual gem. For details of what all these options
 # mean, and other ones you can add, check the documentation here:
