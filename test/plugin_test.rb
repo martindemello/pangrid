@@ -67,12 +67,9 @@ class PluginTest < PangridTest
   end
 
   def test_load_all_is_repeatable
-    skip "known bug: load_all clears REGISTRY but `require` won't re-register already-loaded plugins"
-    saved = Plugin::REGISTRY.dup
+    before = Plugin::REGISTRY.dup
     Plugin.load_all
-    refute_empty Plugin::REGISTRY
-  ensure
-    Plugin::REGISTRY.replace(saved) if saved
+    assert_equal before, Plugin::REGISTRY
   end
 end
 

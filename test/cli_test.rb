@@ -2,10 +2,8 @@ require_relative 'test_helper'
 require 'open3'
 
 class CLITest < PangridTest
-  # Pangrid.run calls Plugin.load_all, which empties the registry when called
-  # a second time in one process, so stub it out for in-process tests.
   def run_pangrid(opts)
-    Plugin.stub(:load_all, nil) { capture_io { Pangrid.run(opts) } }
+    capture_io { Pangrid.run(opts) }
   end
 
   def with_input(content)

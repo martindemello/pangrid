@@ -14,12 +14,9 @@ end
 $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 
 require 'minitest/autorun'
-require 'minitest/mock'
 require 'tmpdir'
 require 'pangrid'
 
-# Plugin.load_all clears the registry and then relies on `require` to
-# repopulate it, so it only works once per process (see plugin_test.rb).
 Pangrid::Plugin.load_all
 
 module PangridTestHelpers
