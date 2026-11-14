@@ -85,7 +85,6 @@ class XWordTest < PangridTest
   end
 
   def test_encode_rebus_with_repeated_solution
-    skip "known bug: encode_rebus! looks up an undefined `s` instead of r.solution"
     xw = make_xw
     xw.solution[0][0].solution = Rebus.new("CAT")
     xw.solution[2][2].solution = Rebus.new("CAT")
