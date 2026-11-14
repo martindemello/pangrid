@@ -45,7 +45,14 @@ class ExolveTest < PangridTest
     assert_equal "Title", xw.title
     assert_equal "Hi", xw.prelude
     assert_equal %w(CAT A#O BEE), grid_strings(xw)
-    assert_equal ["1 Feline", "3 Bee sound"], xw.across_clues
+    assert_equal ACROSS, xw.across_clues
+  end
+
+  def test_read_ignores_unknown_sections
+    # "own" used to match as a substring of "across down"
+    text = "exolve-begin\n  exolve-own:\n    x\n  exolve-grid:\n    AB\nexolve-end\n"
+    xw = ExolveFilled.new.read(text)
+    assert_nil xw.own_clues
   end
 
   def test_read_null_cells
@@ -55,9 +62,9 @@ class ExolveTest < PangridTest
   end
 
   def test_roundtrip_preserves_clues_and_author
-    skip "known bug: reader keeps clue numbers in clue text and stores the setter as xw.setter rather than xw.author"
     xw = ExolveFilled.new.read(ExolveFilled.new.write(make_xw))
     assert_equal ACROSS, xw.across_clues
+    assert_equal DOWN, xw.down_clues
     assert_equal "Author", xw.author
   end
 
