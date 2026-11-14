@@ -25,7 +25,7 @@ class Json < Plugin
         s = case cell.solution
             when :black; '#'
             when :null; ''
-            when Rebus; cell.solution.inspect
+            when Rebus; cell.solution.solution
             else; cell.solution
             end
 

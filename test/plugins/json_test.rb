@@ -26,10 +26,12 @@ class JsonPluginTest < PangridTest
   end
 
   def test_rebus_roundtrip
-    skip "known bug: writer emits Rebus#inspect ('[|CAT]') which the reader treats as a literal rebus string"
     xw = make_xw
     xw.solution[0][0].solution = Rebus.new("CAT")
-    out = Json.new.read(Json.new.write(xw))
+    json = Json.new.write(xw)
+    assert_equal "CAT", JSON.parse(json)["cells"][0]["contents"]
+    out = Json.new.read(json)
+    assert out.solution[0][0].rebus?
     assert_equal "CAT", out.solution[0][0].solution.solution
   end
 end
