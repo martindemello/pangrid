@@ -52,18 +52,28 @@ module ExolveReader
     xw = XWord.new
     s = sections(lines)
     s.each do |_, field, data|
-      if %w(title copyright prelude).include? field
+      if %w(title copyright).include? field
         xw[field] = data
+      elsif field == "prelude"
+        xw.preamble = data
       elsif field == "setter"
         xw.author = data
       elsif %w(height width).include? field
         xw[field] = data.to_i
       elsif %w(across down).include? field
-        xw["#{field}_clues"] = data.map {|c| strip_clue_number(c)}
+        xw["#{field}_clues"] = strip_clue_numbers(data)
       elsif field == "grid"
         xw.solution = parse_grid(data)
       end
     end
+    check("exolve-grid missing") { xw.solution && !xw.solution.empty? }
+    xw.height ||= xw.solution.length
+    xw.width ||= xw.solution[0].length
+    check("Grid does not match exolve-width/exolve-height " +
+          "(#{xw.width}x#{xw.height})") {
+      xw.solution.length == xw.height &&
+        xw.solution.all? {|row| row.length == xw.width}
+    }
     xw
   end
 
@@ -86,11 +96,6 @@ module ExolveReader
     end
     headers.pop
     headers
-  end
-
-  # "12 Clue text (5)" -> "Clue text (5)"
-  def strip_clue_number(clue)
-    clue.sub(/^\d+\s+/, '')
   end
 
   def parse_grid_char(char)

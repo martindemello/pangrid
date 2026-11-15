@@ -1,5 +1,3 @@
-require 'ostruct'
-
 module Pangrid
 
 class PuzzleFormatError < StandardError
@@ -62,14 +60,7 @@ class Cell
     end
   end
 
-  def inspect
-    case solution
-    when :black; '#'
-    when :null; '.'
-    when Rebus; solution.inspect
-    else; solution
-    end
-  end
+  alias_method :inspect, :to_w
 end
 
 # solution = Cell[][]
@@ -77,7 +68,53 @@ end
 # across_clues = string[]
 # down_clues = string[]
 # rebus = { solution => [int, rebus_char] }
-class XWord < OpenStruct
+class XWord
+  # Metadata shared by all formats
+  COMMON = %i(width height solution across_clues down_clues
+              title author copyright notes preamble rebus)
+
+  # AcrossLite binary format fields
+  #   clues: across and down clues interleaved in numerical order
+  #   fill: the solver's progress
+  #   mark: AcrossLite text format rebus flag
+  ACROSSLITE = %i(clues n_clues fill version puzzle_type scrambled_state
+                  extensions mark time_elapsed)
+
+  ATTRIBUTES = COMMON + ACROSSLITE
+
+  attr_accessor(*ATTRIBUTES)
+
+  # Unknown attributes raise NoMethodError rather than being silently
+  # accepted, so that typos show up immediately.
+  def initialize(**args)
+    @across_clues = []
+    @down_clues = []
+    args.each {|k, v| self[k] = v}
+  end
+
+  # Writers can rely on the clue lists being arrays
+  def across_clues=(clues)
+    @across_clues = clues || []
+  end
+
+  def down_clues=(clues)
+    @down_clues = clues || []
+  end
+
+  def [](k)
+    check_attribute(k)
+    public_send(k)
+  end
+
+  def []=(k, v)
+    check_attribute(k)
+    public_send(:"#{k}=", v)
+  end
+
+  def to_h
+    ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact
+  end
+
   # Clue numbering
   def black?(x, y)
     solution[y][x].black?
@@ -112,6 +149,7 @@ class XWord < OpenStruct
   def number(words = false)
     n, across, down = 1, [], []
     words_a, words_d = [], []
+    each_cell {|c| c.number = nil}
     (0 ... height).each do |y|
       (0 ... width).each do |x|
         if across? x, y
@@ -156,9 +194,7 @@ class XWord < OpenStruct
         case s
         when :black, :null
           opts[s]
-        when String
-          block_given? ? (yield c) : c.to_char
-        when Rebus
+        when String, Rebus
           block_given? ? (yield c) : c.to_char
         else
           raise PuzzleFormatError, "Unrecognised cell #{c}"
@@ -186,28 +222,18 @@ class XWord < OpenStruct
     end
   end
 
+  def check_attribute(k)
+    unless ATTRIBUTES.include?(k.to_sym)
+      raise NoMethodError, "unknown XWord attribute #{k}"
+    end
+  end
+
   def inspect_grid
     number
-    solution.map {|row|
-      row.map {|c|
-        s = c.solution
-        o = case s
-        when :black
-          "#"
-        when :null
-          "."
-        when String
-          c.to_char
-        when Rebus
-          c.to_char
-        else
-          raise PuzzleFormatError, "Unrecognised cell #{c}"
-        end
-        if c.number && c.number > 0
-          o = "#{c.number} #{o}"
-        end
-        o = o.rjust(4)
-      }.join("|")
+    to_array(:black => '#', :null => '.') {|c|
+      c.number ? "#{c.number} #{c.to_char}" : c.to_char
+    }.map {|row|
+      row.map {|o| o.rjust(4)}.join("|")
     }.join("\n")
   end
 end

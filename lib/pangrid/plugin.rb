@@ -60,7 +60,9 @@ class Plugin
       require filename
     rescue PluginDependencyError => e
       MISSING_DEPS[e.name] = e.gems
-    rescue StandardError => e
+    rescue StandardError, LoadError => e
+      # LoadError is not a StandardError; catch it so that one plugin with a
+      # missing dependency cannot take down every other plugin.
       FAILED << "#{File.basename(filename)}: #{e}"
     end
   end

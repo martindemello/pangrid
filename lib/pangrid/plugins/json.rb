@@ -45,15 +45,30 @@ class Json < Plugin
   end
 
   def read(data)
-    json = ::JSON.parse(data)
+    begin
+      json = ::JSON.parse(data)
+    rescue ::JSON::ParserError => e
+      raise PuzzleFormatError, "Invalid JSON: #{e.message}"
+    end
+    check("Expected a JSON object") { json.is_a?(Hash) }
     xw = XWord.new
 
     xw.height = json['rows']
     xw.width = json['cols']
+    check("rows and cols must be positive integers") {
+      [xw.height, xw.width].all? {|i| i.is_a?(Integer) && i > 0}
+    }
+    check("cells must be a list") { json['cells'].is_a?(Array) }
     xw.solution = Array.new(xw.height) { Array.new(xw.width) }
     json['cells'].each do |c|
       cell = Cell.new
       s = c['contents']
+      x, y = c['x'], c['y']
+      check("Cell #{c.inspect} is outside the grid") {
+        x.is_a?(Integer) && y.is_a?(Integer) &&
+          (0...xw.width).cover?(x) && (0...xw.height).cover?(y)
+      }
+      check("Cell #{c.inspect} needs string contents") { s.is_a?(String) }
       cell.solution =
         case s
         when ""; :null
@@ -65,9 +80,10 @@ class Json < Plugin
             Rebus.new s
           end
         end
-      x, y = c['x'], c['y']
       xw.solution[y][x] = cell
     end
+    missing = xw.solution.flatten.count(nil)
+    check("#{missing} cells are missing from the grid") { missing == 0 }
     xw.across_clues = json['across']
     xw.down_clues = json['down']
     xw

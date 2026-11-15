@@ -49,12 +49,16 @@ class PluginTest < PangridTest
       File.write(bad, "raise 'boom'")
       missing = File.join(dir, "missing_plugin.rb")
       File.write(missing, "Pangrid.require_for_plugin('missing', ['no_such_gem_xyz'])")
+      unguarded = File.join(dir, "unguarded_plugin.rb")
+      File.write(unguarded, "require 'no_such_gem_xyz'")
       Plugin.load_plugin(bad)
       Plugin.load_plugin(missing)
+      Plugin.load_plugin(unguarded)
       assert_includes Plugin::FAILED, "bad_plugin.rb: boom"
+      assert Plugin::FAILED.any? {|f| f.start_with?("unguarded_plugin.rb: cannot load such file")}
       assert_equal ["no_such_gem_xyz"], Plugin::MISSING_DEPS["missing"]
     ensure
-      Plugin::FAILED.delete("bad_plugin.rb: boom")
+      Plugin::FAILED.reject! {|f| f =~ /^(bad|unguarded)_plugin.rb/}
       Plugin::MISSING_DEPS.delete("missing")
     end
   end
@@ -64,6 +68,27 @@ class PluginTest < PangridTest
     assert_nil p.check { true }
     e = assert_raises(PuzzleFormatError) { p.check("bad") { false } }
     assert_equal "bad", e.message
+  end
+
+  def test_strip_clue_numbers
+    p = Plugin.new
+    clues = ["1. One", "2\\. Two", "**3.** Three", "  4 Four", "(5) Five", "Six"]
+    assert_equal %w(One Two Three Four Five Six), p.strip_clue_numbers(clues)
+  end
+
+  def test_strip_clue_numbers_requires_a_whole_number
+    p = Plugin.new
+    assert_equal ["1984 author"], p.strip_clue_numbers(["1984 author"], [1])
+    assert_equal ["1, 5 Linked clue"], p.strip_clue_numbers(["1, 5 Linked clue"])
+    assert_equal ["1. One"], p.strip_clue_numbers(["1. One"], [2])
+    assert_equal ["10th"], p.strip_clue_numbers(["10th"])
+  end
+
+  def test_strip_clue_numbers_with_expected_numbers
+    p = Plugin.new
+    assert_equal ["One", "Three"], p.strip_clue_numbers(["1. One", "3. Three"], [1, 3])
+    # clues beyond the list of numbers are left as they are
+    assert_equal ["One", "2. Two"], p.strip_clue_numbers(["1. One", "2. Two"], [1])
   end
 
   def test_load_all_is_repeatable

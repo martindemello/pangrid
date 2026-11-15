@@ -1,3 +1,27 @@
+# Unreleased
+
+* Remove the web frontend (and the webrick dependency)
+* AcrossLite binary: convert text to and from ISO-8859-1 (fixes accented
+  characters), don't duplicate rebus sections when re-writing a puzzle, and
+  reject scrambled or truncated files
+* Exolve reader: strip clue numbers, read the setter as the author and the
+  prelude as the preamble, and infer the grid size when it isn't given
+* Reddit reader: more robust clue parsing
+* Exolve and Reddit readers share the same clue number stripping, which
+  leaves linked clues like "1, 5 Clue" intact
+* CSV reader: honour the Offset header
+* JSON: keep rebus squares on a round trip, and validate input
+* Excel writer: support rebus squares
+* Writers no longer crash on puzzles without clues
+* A missing optional gem no longer stops other plugins from loading
+* Command line: exit with status 1 on errors, report format errors without a
+  backtrace, and use binary file I/O (fixes binary formats on Windows)
+* Replace the vendored Trollop with OptionParser; declare the chunky_png and
+  csv dependencies
+* Library: XWord is no longer an OpenStruct, so unknown attributes raise
+  NoMethodError; across_clues/down_clues default to []; XWord#number clears
+  stale clue numbers
+
 # [0.5.3] : 2024-11-27
 
 * Improve the qxw reader

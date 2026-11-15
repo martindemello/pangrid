@@ -30,6 +30,27 @@ class CSVPluginTest < PangridTest
     assert_equal %w(Ab), grid_strings(xw)
   end
 
+  def test_offset
+    input = <<~EOF
+      Width: 2, Height: 2, Offset: 1, Black: #, Empty: -, Clues: 0
+      row 1,A,B,ignored
+      row 2,C,#
+    EOF
+    xw = Pangrid::CSV.new.read(input)
+    assert_equal %w(AB C#), grid_strings(xw)
+  end
+
+  def test_too_few_rows
+    input = "Width: 2, Height: 3, Black: #, Empty: -, Clues: 0\nA,B\nC,D\n"
+    e = assert_raises(PuzzleFormatError) { Pangrid::CSV.new.read(input) }
+    assert_match(/Expected 3 grid rows, found 2/, e.message)
+  end
+
+  def test_bad_dimensions
+    input = "Width: x, Height: 3, Black: #, Empty: -, Clues: 0\nA,B\n"
+    assert_raises(PuzzleFormatError) { Pangrid::CSV.new.read(input) }
+  end
+
   def test_missing_header
     e = assert_raises(PuzzleFormatError) { Pangrid::CSV.new.read("a,b\nc,d\n") }
     assert_match(/No header row/, e.message)

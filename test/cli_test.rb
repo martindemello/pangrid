@@ -6,6 +6,18 @@ class CLITest < PangridTest
     capture_io { Pangrid.run(opts) }
   end
 
+  def run_pangrid_ok(opts)
+    result = nil
+    capture_io { result = Pangrid.run(opts) }
+    result
+  end
+
+  def run_bin(*args)
+    bin = File.expand_path('../bin/pangrid', __dir__)
+    lib = File.expand_path('../lib', __dir__)
+    Open3.capture3("ruby", "-I", lib, bin, *args)
+  end
+
   def with_input(content)
     Dir.mktmpdir do |dir|
       input = File.join(dir, "in")
@@ -16,8 +28,23 @@ class CLITest < PangridTest
 
   def test_convert
     with_input(Json.new.write(make_xw)) do |input, output|
-      run_pangrid(from: "json", to: "text", in: input, out: output)
+      assert run_pangrid_ok(from: "json", to: "text", in: input, out: output)
       assert_equal Text.new.write(make_xw), File.read(output)
+    end
+  end
+
+  def test_binary_roundtrip
+    puz = AcrossLiteBinary.new.write(make_xw(title: "Café"))
+    with_input(puz) do |input, output|
+      run_pangrid(from: "across-lite-binary", to: "across-lite-binary", in: input, out: output)
+      assert_equal puz, File.binread(output)
+    end
+  end
+
+  def test_utf8_text_input
+    with_input(AcrossLiteText.new.write(make_xw(title: "Café"))) do |input, output|
+      run_pangrid(from: "across-lite-text", to: "exolve-filled", in: input, out: output)
+      assert_includes File.read(output, encoding: "UTF-8"), "exolve-title: Café"
     end
   end
 
@@ -36,22 +63,134 @@ class CLITest < PangridTest
       assert_match(/No writer for csv/, err)
       _, err = run_pangrid(from: "json", to: "text", in: input + "x", out: output)
       assert_match(/Cannot find file/, err)
+      refute run_pangrid_ok(from: "nope", to: "text", in: input, out: output)
       refute File.exist?(output)
     end
   end
 
-  def test_executable
-    bin = File.expand_path('../bin/pangrid', __dir__)
-    lib = File.expand_path('../lib', __dir__)
+  def test_format_errors_are_reported
+    with_input("not a csv grid") do |input, output|
+      _, err = run_pangrid(from: "csv", to: "text", in: input, out: output)
+      assert_match(/^Could not convert .*: No header row found/, err)
+      refute run_pangrid_ok(from: "csv", to: "text", in: input, out: output)
+      refute File.exist?(output)
+    end
+  end
+
+  # Run Pangrid.run_command_line in-process. Returns [stdout, stderr, status],
+  # where status is the exit status, or nil if it returned without exiting.
+  def run_cli(*args)
+    status = nil
+    out, err = capture_io do
+      Pangrid.run_command_line(args)
+    rescue SystemExit => e
+      status = e.status
+    end
+    [out, err, status]
+  end
+
+  def test_cli_convert
     with_input(Json.new.write(make_xw)) do |input, output|
-      _, status = Open3.capture2e("ruby", "-I", lib, bin,
-                                  "--from", "json", "--to", "exolve-filled",
-                                  "--in", input, "--out", output)
+      _, err, status = run_cli("--from", "json", "--to", "text", "--in", input, "--out", output)
+      assert_nil status
+      assert_empty err
+      assert_equal Text.new.write(make_xw), File.read(output)
+    end
+  end
+
+  def test_cli_short_options
+    with_input(Json.new.write(make_xw)) do |input, output|
+      _, _, status = run_cli("-f", "json", "-t", "text", "-i", input, "-o", output)
+      assert_nil status
+      assert_equal Text.new.write(make_xw), File.read(output)
+    end
+  end
+
+  def test_cli_list
+    out, _, status = run_cli("--list")
+    assert_nil status
+    assert_match(/Available plugins/, out)
+    out, _, _ = run_cli("-l")
+    assert_match(/Available plugins/, out)
+  end
+
+  def test_cli_help
+    %w(--help -h).each do |flag|
+      out, err, status = run_cli(flag)
+      assert_equal 0, status
+      assert_match(/^Usage: pangrid/, out)
+      assert_match(/--from=FORMAT/, out)
+      assert_empty err
+    end
+  end
+
+  def test_cli_version
+    %w(--version -v).each do |flag|
+      out, _, status = run_cli(flag)
+      assert_equal 0, status
+      assert_equal "pangrid #{Pangrid::VERSION}\n", out
+    end
+  end
+
+  def test_cli_without_arguments_prints_usage
+    out, err, status = run_cli
+    assert_equal 1, status
+    assert_empty out
+    assert_match(/^Usage: pangrid/, err)
+  end
+
+  def test_cli_incomplete_arguments_prints_usage
+    _, err, status = run_cli("--from", "json", "--to", "text")
+    assert_equal 1, status
+    assert_match(/^Usage: pangrid/, err)
+  end
+
+  def test_cli_invalid_options
+    _, err, status = run_cli("--bogus")
+    assert_equal 1, status
+    assert_match(/^Error: invalid option: --bogus/, err)
+    assert_match(/Try --help/, err)
+
+    _, err, status = run_cli("--from")
+    assert_equal 1, status
+    assert_match(/^Error: missing argument: --from/, err)
+  end
+
+  def test_cli_conversion_errors
+    with_input("not a csv grid") do |input, output|
+      _, err, status = run_cli("-f", "csv", "-t", "text", "-i", input, "-o", output)
+      assert_equal 1, status
+      assert_match(/^Could not convert .*: No header row found/, err)
+      refute File.exist?(output)
+
+      _, err, status = run_cli("-f", "nope", "-t", "text", "-i", input, "-o", output)
+      assert_equal 1, status
+      assert_match(/No reader for nope/, err)
+    end
+  end
+
+  def test_cli_does_not_modify_argv
+    args = ["--version"]
+    run_cli(*args)
+    assert_equal ["--version"], args
+    args = ["-f", "json", "-t", "text"]
+    run_cli(*args)
+    assert_equal ["-f", "json", "-t", "text"], args
+  end
+
+  # Smoke test of the executable itself; the option handling is tested
+  # in-process above.
+  def test_executable
+    with_input(Json.new.write(make_xw)) do |input, output|
+      _, _, status = run_bin("--from", "json", "--to", "exolve-filled",
+                             "--in", input, "--out", output)
       assert status.success?
       assert_includes File.read(output), "exolve-begin"
     end
-    out, status = Open3.capture2e("ruby", "-I", lib, bin, "--version")
-    assert status.success?
-    assert_includes out, Pangrid::VERSION
+    with_input("not a csv grid") do |input, output|
+      _, err, status = run_bin("-f", "csv", "-t", "text", "-i", input, "-o", output)
+      assert_equal 1, status.exitstatus
+      refute_match(/\.rb:\d+/, err, "should not print a backtrace")
+    end
   end
 end

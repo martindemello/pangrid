@@ -7,12 +7,35 @@
 #   AcrossLiteBinary : read, write
 #   AcrossLiteText : read, write
 
-require 'ostruct'
-
 module Pangrid
 
 GRID_CHARS = {:black => '.', :null => '?'}
 FILL_CHARS = {:black => '.', :null => '-'}
+
+# The binary format stores text as ISO-8859-1; we use UTF-8 internally.
+module Latin1
+  # String -> ISO-8859-1 bytes (binary strings are passed through)
+  def self.bytes(s)
+    return s.b if [Encoding::BINARY, Encoding::ISO_8859_1].include?(s.encoding)
+    s.encode(Encoding::ISO_8859_1, undef: :replace, invalid: :replace,
+             replace: '?').b
+  end
+
+  # ISO-8859-1 bytes -> UTF-8 String
+  def self.decode(s)
+    s.dup.force_encoding(Encoding::ISO_8859_1).encode(Encoding::UTF_8)
+  end
+end
+
+# Binary format extension sections. `data` holds the raw bytes; the other
+# fields are populated by the section-specific readers.
+Extension = Struct.new(:section, :len, :checksum, :data,
+                       :elapsed, :stopped,  # LTIM
+                       :grid,               # GRBS, GEXT
+                       :rebus,              # RTBL
+                       keyword_init: true)
+
+Checksums = Struct.new(:global, :cib, :masked_low, :masked_high, :scrambled)
 
 # CRC checksum for binary format
 class Checksum
@@ -36,7 +59,7 @@ class Checksum
   end
 
   def add_string(s)
-    s.bytes.map {|b| add_char b}
+    Latin1.bytes(s).bytes.map {|b| add_char b}
   end
 
   def add_string_0(s)
@@ -85,12 +108,12 @@ class AcrossLiteBinary < Plugin
 
   def initialize
     @xw = XWord.new
-    @cs = OpenStruct.new
+    @cs = Checksums.new
     @xw.extensions = []
   end
 
   def read(data)
-    s = data.force_encoding("ISO-8859-1")
+    s = data.b
 
     i = s.index(FILE_MAGIC)
     check("Could not recognise AcrossLite binary file") { i }
@@ -103,20 +126,29 @@ class AcrossLiteBinary < Plugin
       xw.version, _, cs.scrambled, _,
       xw.width, xw.height, xw.n_clues, xw.puzzle_type, xw.scrambled_state =
       header.unpack(HEADER_FORMAT)
+    check("Could not recognise AcrossLite binary file") { xw.width }
+    check("Scrambled (locked) puzzles are not supported") {
+      xw.scrambled_state == 0
+    }
 
     # solution and fill = blocks of w*h bytes each
     size = xw.width * xw.height
-    xw.solution = unpack_solution xw, s[h_end, size]
-    xw.fill = s[h_end + size, size]
+    check("AcrossLite binary file is truncated") { s.length >= h_end + 2 * size }
+    xw.solution = unpack_solution xw, Latin1.decode(s[h_end, size])
+    xw.fill = Latin1.decode(s[h_end + size, size])
     s = s[h_end + 2 * size .. -1]
 
     # title, author, copyright, clues * n, notes = zero-terminated strings
     xw.title, xw.author, xw.copyright, *xw.clues, xw.notes, s =
       s.split("\0", xw.n_clues + 5)
+    check("Could not read clues from AcrossLite binary file") { s }
+    xw.title, xw.author, xw.copyright, xw.notes =
+      [xw.title, xw.author, xw.copyright, xw.notes].map {|x| Latin1.decode(x)}
+    xw.clues = xw.clues.map {|x| Latin1.decode(x)}
 
     # extensions: 8-byte header + len bytes data + \0
     while (s.length > 8) do
-      e = OpenStruct.new
+      e = Extension.new
       e.section, e.len, e.checksum = s.unpack(EXT_HEADER_FORMAT)
       check("Unrecognised extension #{e.section}") { EXTENSIONS.include? e.section }
       size = 8 + e.len + 1
@@ -137,7 +169,9 @@ class AcrossLiteBinary < Plugin
   end
 
   def write(xw)
-    @xw = xw
+    # work on a copy so that the fields filled in below don't leak back into
+    # the caller's puzzle
+    @xw = xw = xw.dup
 
     # fill in some fields that might not be present (checksums needs this)
     pack_clues
@@ -148,7 +182,10 @@ class AcrossLiteBinary < Plugin
     xw.scrambled_state ||= 0
     xw.version = "1.3"
     xw.notes ||= ""
-    xw.extensions ||= []
+    # rebus extensions are regenerated from the grid below
+    xw.extensions = (xw.extensions || []).reject {|e|
+      %w(GRBS RTBL).include? e.section
+    }
     xw.title ||= ""
     xw.author ||= ""
     xw.copyright ||= ""
@@ -157,15 +194,13 @@ class AcrossLiteBinary < Plugin
     xw.encode_rebus!
     if not xw.rebus.empty?
       # GRBS
-      e = OpenStruct.new
-      e.section = "GRBS"
+      e = Extension.new(section: "GRBS")
       e.grid = xw.to_array({:black => 0, :null => 0}) {|s|
         s.rebus? ? s.solution.symbol.to_i : 0
       }.flatten
       xw.extensions << e
       # RTBL
-      e = OpenStruct.new
-      e.section = "RTBL"
+      e = Extension.new(section: "RTBL")
       e.rebus = {}
       xw.rebus.each do |long, (k, short)|
         e.rebus[k] = [long, short]
@@ -182,10 +217,10 @@ class AcrossLiteBinary < Plugin
     header = h.pack(HEADER_FORMAT)
 
     strings = [xw.title, xw.author, xw.copyright] + xw.clues + [xw.notes]
-    strings = strings.map {|x| x + "\0"}.join
+    strings = strings.map {|x| Latin1.bytes(x) + "\0".b}.join
 
     [header, pack_solution(xw), xw.fill, strings, write_extensions].map {|x|
-      x.force_encoding("ISO-8859-1")
+      Latin1.bytes(x)
     }.join
   end
 
@@ -233,7 +268,6 @@ class AcrossLiteBinary < Plugin
     # record these for file inspection, though they're unlikely to be useful
     if (ltim = get_extension("LTIM"))
       xw.time_elapsed = ltim.elapsed
-      xw.paused
     end
 
     # we need both grbs and rtbl
@@ -266,7 +300,7 @@ class AcrossLiteBinary < Plugin
     check("Could not read extension RTBL") { m }
     e.rebus = {}
     e.data.scan(rx).each {|_, k, v|
-      e.rebus[k.to_i] = [v, '-']
+      e.rebus[k.to_i] = [Latin1.decode(v), '-']
     }
   end
 
@@ -346,7 +380,7 @@ class AcrossLiteBinary < Plugin
   end
 
   def checksums
-    c = OpenStruct.new
+    c = Checksums.new
     c.masked_low, c.masked_high = magic_checksums
     c.cib = header_checksum
     c.global = global_checksum

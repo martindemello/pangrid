@@ -39,7 +39,9 @@ spec = Gem::Specification.new do |s|
 
   # If you want to depend on other gems, add them here, along with any
   # relevant versions
-  s.add_dependency("webrick", "~> 1.7.0")
+  s.add_dependency("chunky_png", "~> 1.4")
+  # csv is no longer a default gem as of ruby 3.4
+  s.add_dependency("csv", ">= 3.0")
 
   # If your tests use any gems, include them here
   # s.add_development_dependency("mocha") # for example

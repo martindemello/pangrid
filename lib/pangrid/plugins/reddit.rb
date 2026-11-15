@@ -64,19 +64,10 @@ class RedditBlank < Plugin
     c == "" || c == "*.*" || c =~ /^(\^\d+)?[[:alpha:]]*$/ # allow partially filled grids
   end
 
-  # make a best-attempt effort to strip off the clue number
-  def strip_clues(nums, clues)
-    nums.zip(clues).each_with_index.map do |(n, cl), i|
-      b = cl.index(n.to_s)
-      if b
-        e = b + n.to_s.length
-        if cl[0...b] =~ /\W*/ and cl[e + 1] =~ /\W/
-          cl[e+1 .. -1].sub(/^\W*\s/, '').strip
-        else
-          cl.strip
-        end
-      end
-    end
+  # The lines following a clue section header, up to the next header
+  def clue_section(lines, start, other)
+    stop = other > start ? other : lines.length
+    lines[(start + 1) ... stop]
   end
 
   def read(data)
@@ -97,8 +88,7 @@ class RedditBlank < Plugin
     lines = [lines[(ix - 1)]] + lines[(ix + 1) .. -1]
     grid = lines.take_while {|i| is_grid_row(i)}
 
-    clues = lines[grid.length .. -1]
-    clues = lines.reject {|i| i.strip.empty?}
+    clues = lines[grid.length .. -1].map(&:strip).reject(&:empty?)
 
     # strip leading |s
     grid = grid.map {|line| line.sub(/^\|/, '')}
@@ -126,10 +116,12 @@ class RedditBlank < Plugin
     across, down = xw.number
     aix = clues.find_index {|row| row =~ /^\W*across/i}
     dix = clues.find_index {|row| row =~ /^\W*down/i}
-    xw.across_clues = clues[(aix + 1) .. (aix + across.length)]
-    xw.down_clues = clues[(dix + 1) .. (dix + down.length)]
-    xw.across_clues = strip_clues(across, xw.across_clues)
-    xw.down_clues = strip_clues(down, xw.down_clues)
+    check("Could not find across clues") { aix }
+    check("Could not find down clues") { dix }
+    ac = clue_section(clues, aix, dix).take(across.length)
+    dn = clue_section(clues, dix, aix).take(down.length)
+    xw.across_clues = strip_clue_numbers(ac, across)
+    xw.down_clues = strip_clue_numbers(dn, down)
 
     xw
   end

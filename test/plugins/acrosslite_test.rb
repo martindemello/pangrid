@@ -24,7 +24,7 @@ class AcrossLiteBinaryTest < PangridTest
 
   def test_write_header
     out = AcrossLiteBinary.new.write(make_xw)
-    assert_equal Encoding::ISO_8859_1, out.encoding
+    assert_equal Encoding::BINARY, out.encoding
     assert_equal "ACROSS&DOWN\0", out[2, 12]
     assert_equal [3, 3, 4], out[0x2c, 6].unpack("C2v")
   end
@@ -41,9 +41,30 @@ class AcrossLiteBinaryTest < PangridTest
     assert_equal "1.3", xw.version
   end
 
+  def test_text_is_stored_as_latin1
+    xw = make_xw(title: "Café", across: ["Naïve", "Bee sound"])
+    out = AcrossLiteBinary.new.write(xw)
+    assert_includes out, "Caf\xE9\0".b
+    refute_includes out, "Café".b
+    read = AcrossLiteBinary.new.read(out)
+    assert_equal "Café", read.title
+    assert_equal Encoding::UTF_8, read.title.encoding
+    assert_equal ["Naïve", "Bee sound"], read.across_clues
+  end
+
+  def test_unrepresentable_characters_are_replaced
+    out = AcrossLiteBinary.new.write(make_xw(title: "→ x"))
+    assert_equal "? x", AcrossLiteBinary.new.read(out).title
+  end
+
+  def test_read_does_not_modify_input
+    data = AcrossLiteBinary.new.write(make_xw).force_encoding("UTF-8")
+    AcrossLiteBinary.new.read(data)
+    assert_equal Encoding::UTF_8, data.encoding
+  end
+
   def test_clues_are_interleaved_by_number
-    xw = make_xw
-    AcrossLiteBinary.new.write(xw)
+    xw = AcrossLiteBinary.new.read(AcrossLiteBinary.new.write(make_xw))
     assert_equal ["Feline", "Taxi", "Foot digit", "Bee sound"], xw.clues
   end
 
@@ -57,6 +78,23 @@ class AcrossLiteBinaryTest < PangridTest
     assert_equal ["GRBS", "RTBL"], out.extensions.map(&:section)
   end
 
+  def test_write_does_not_modify_input
+    xw = make_xw
+    xw.solution[0][0].solution = Rebus.new("CAT")
+    first = AcrossLiteBinary.new.write(xw)
+    assert_nil xw.clues
+    assert_nil xw.extensions
+    assert_equal first, AcrossLiteBinary.new.write(xw)
+  end
+
+  def test_rewriting_a_rebus_puzzle_does_not_duplicate_extensions
+    xw = make_xw
+    xw.solution[0][0].solution = Rebus.new("CAT")
+    once = AcrossLiteBinary.new.write(xw)
+    twice = AcrossLiteBinary.new.write(AcrossLiteBinary.new.read(once))
+    assert_equal once, twice
+  end
+
   def test_write_rejects_extra_clues
     xw = make_xw(across: ACROSS + ["extra"])
     assert_raises(PuzzleFormatError) { AcrossLiteBinary.new.write(xw) }
@@ -66,6 +104,21 @@ class AcrossLiteBinaryTest < PangridTest
 
   def test_read_rejects_garbage
     assert_raises(PuzzleFormatError) { AcrossLiteBinary.new.read("not a puzzle".b) }
+  end
+
+  def test_read_rejects_scrambled_puzzles
+    data = AcrossLiteBinary.new.write(make_xw(scrambled_state: 4))
+    e = assert_raises(PuzzleFormatError) { AcrossLiteBinary.new.read(data) }
+    assert_match(/Scrambled/, e.message)
+  end
+
+  def test_read_rejects_truncated_file
+    data = AcrossLiteBinary.new.write(make_xw)
+    [20, 0x34, 0x34 + 9].each do |n|
+      assert_raises(PuzzleFormatError, "truncated to #{n}") {
+        AcrossLiteBinary.new.read(data[0, n])
+      }
+    end
   end
 
   def test_read_detects_bad_checksum
@@ -92,11 +145,11 @@ class AcrossLiteBinaryTest < PangridTest
 
   def test_ext_helpers
     w = AcrossLiteBinary.new
-    e = OpenStruct.new(elapsed: 10, stopped: false)
+    e = Extension.new(elapsed: 10, stopped: false)
     assert_equal "10,0\0", w.send(:write_ltim, e)
-    e = OpenStruct.new(grid: [65, 66])
+    e = Extension.new(grid: [65, 66])
     assert_equal "AB", w.send(:write_gext, e)
-    e = OpenStruct.new(data: "AB")
+    e = Extension.new(data: "AB")
     w.send(:read_gext, e)
     assert_equal [65, 66], e.grid
   end

@@ -38,27 +38,32 @@ class CSV < Plugin
     check("No header row found. Header needs a 'Width: ' cell in the first column.") { !s.empty? }
     xw = XWord.new
     h = s.shift.map {|c| c.split(/:\s*/)}
-    header = OpenStruct.new
+    header = {}
     h.each do |k, v|
       header[k.downcase.strip] = v
     end
 
-    header.clues = header.clues.to_i
-    xw.width = header.width.to_i
-    xw.height = header.height.to_i
+    clue_column = header["clues"].to_i
+    black, empty = header["black"], header["empty"]
+    xw.width = header["width"].to_i
+    xw.height = header["height"].to_i
+    offset = header["offset"].to_i
+    check("Width and Height must be positive") { xw.width > 0 && xw.height > 0 }
     xw.solution = []
-    xw.height.times do
+    xw.height.times do |y|
       row = s.shift
-      check("Row does not have #{xw.width} cells: \n" +
-            row.join(',')) { row.length == xw.width }
-      xw.solution << row.map do |c|
+      check("Expected #{xw.height} grid rows, found #{y}") { row }
+      cells = row[offset, xw.width] || []
+      check("Row does not have #{xw.width} cells starting at column " +
+            "#{offset}: \n" + row.join(',')) { cells.length == xw.width }
+      xw.solution << cells.map do |c|
         cell = Cell.new
-        if c == header.black
+        if c == black
           cell.solution = :black
-        elsif c == header.empty or c == nil
+        elsif c == empty or c == nil
           cell.solution = :null
         else
-          cell.solution = c.gsub /[^[:alpha:]]/, ''
+          cell.solution = c.gsub(/[^[:alpha:]]/, '')
         end
         cell
       end
@@ -66,8 +71,8 @@ class CSV < Plugin
 
     xw.clues = []
     s.each do |row|
-      if row[header.clues]
-        xw.clues << row[header.clues]
+      if row[clue_column]
+        xw.clues << row[clue_column]
       end
     end
     unpack_clues(xw)
