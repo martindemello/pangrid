@@ -5,6 +5,9 @@ Examples:
 # Run from the command line
 $ pangrid -f across-lite-binary -t text -i sample.puz -o sample.txt
 
+# Add clues from a text file, e.g. to a grid from qxw, which has no clues
+$ pangrid -f qxw -t across-lite-binary -i grid.qxw -c clues.txt -o puzzle.puz
+
 # List available plugins
 $ pangrid -l
 
@@ -14,6 +17,25 @@ Options:
     -t, --to=FORMAT                  Format to convert to
     -i, --in=FILE                    Input file
     -o, --out=FILE                   Output file
+    -c, --clues=FILE                 Add clues from a text file (see below)
     -l, --list                       List available format plugins
     -v, --version                    Print version and exit
     -h, --help                       Show this message
+
+
+Clues file format (-c):
+
+  Across
+
+  7 Wonderful view of canal, including outer banks (8)
+  9 Bleed badly after hack's first cut with saw (6)
+
+  Down
+
+  1 Power to limit a settlement (8)
+
+Every clue starts with its number, which is used to match it to the grid, so
+the clues can be in any order. Numbers may be decorated ("7.", "**7.**",
+"7)"). Blank lines are ignored. The clue numbers must match the grid exactly;
+missing or extra clues are reported as an error. The clues replace any that
+were already in the input file.

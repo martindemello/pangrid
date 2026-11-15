@@ -2,11 +2,12 @@ require 'optparse'
 
 require_relative 'pangrid/version'
 require_relative 'pangrid/plugin'
+require_relative 'pangrid/clues'
 
 module Pangrid
   def self.option_parser(opts)
     OptionParser.new do |p|
-      p.banner = "Usage: pangrid -f FORMAT -t FORMAT -i INPUT -o OUTPUT\n" +
+      p.banner = "Usage: pangrid -f FORMAT -t FORMAT -i INPUT -o OUTPUT [-c CLUES]\n" +
                  "       pangrid -l"
       p.version = VERSION
       p.separator ""
@@ -15,6 +16,9 @@ module Pangrid
       p.on("-t", "--to=FORMAT", "Format to convert to") {|v| opts[:to] = v}
       p.on("-i", "--in=FILE", "Input file") {|v| opts[:in] = v}
       p.on("-o", "--out=FILE", "Output file") {|v| opts[:out] = v}
+      p.on("-c", "--clues=FILE", "Add clues from a text file (see README)") {|v|
+        opts[:clues] = v
+      }
       p.on("-l", "--list", "List available format plugins") { opts[:list] = true }
       p.on("-v", "--version", "Print version and exit") {
         puts "pangrid #{VERSION}"
@@ -71,9 +75,11 @@ module Pangrid
       return false
     end
 
-    if !File.exist? opts[:in]
-      $stderr.puts "Cannot find file #{opts[:in]}"
-      return false
+    [opts[:in], opts[:clues]].compact.each do |f|
+      if !File.exist? f
+        $stderr.puts "Cannot find file #{f}"
+        return false
+      end
     end
 
     reader = from.new
@@ -83,7 +89,23 @@ module Pangrid
     # expect UTF-8; the binary reader reinterprets the bytes itself.
     input = File.binread(opts[:in]).force_encoding(Encoding::UTF_8)
     begin
-      output = writer.write(reader.read(input))
+      xw = reader.read(input)
+    rescue PuzzleFormatError => e
+      $stderr.puts "Could not convert #{opts[:in]}: #{e.message}"
+      return false
+    end
+
+    if opts[:clues]
+      begin
+        ClueList.read(File.read(opts[:clues], encoding: "UTF-8")).apply(xw)
+      rescue PuzzleFormatError => e
+        $stderr.puts "Could not add clues from #{opts[:clues]}: #{e.message}"
+        return false
+      end
+    end
+
+    begin
+      output = writer.write(xw)
     rescue PuzzleFormatError => e
       $stderr.puts "Could not convert #{opts[:in]}: #{e.message}"
       return false
