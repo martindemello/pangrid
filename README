@@ -36,6 +36,6 @@ Clues file format (-c):
 
 Every clue starts with its number, which is used to match it to the grid, so
 the clues can be in any order. Numbers may be decorated ("7.", "**7.**",
-"7)"). Blank lines are ignored. The clue numbers must match the grid exactly;
-missing or extra clues are reported as an error. The clues replace any that
-were already in the input file.
+"7)"). Blank lines and lines starting with # are ignored. The clue numbers
+must match the grid exactly; missing or extra clues are reported as an error.
+The clues replace any that were already in the input file.
