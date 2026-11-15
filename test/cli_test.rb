@@ -6,6 +6,18 @@ class CLITest < PangridTest
     capture_io { Pangrid.run(opts) }
   end
 
+  def run_pangrid_ok(opts)
+    result = nil
+    capture_io { result = Pangrid.run(opts) }
+    result
+  end
+
+  def run_bin(*args)
+    bin = File.expand_path('../bin/pangrid', __dir__)
+    lib = File.expand_path('../lib', __dir__)
+    Open3.capture3("ruby", "-I", lib, bin, *args)
+  end
+
   def with_input(content)
     Dir.mktmpdir do |dir|
       input = File.join(dir, "in")
@@ -16,7 +28,7 @@ class CLITest < PangridTest
 
   def test_convert
     with_input(Json.new.write(make_xw)) do |input, output|
-      run_pangrid(from: "json", to: "text", in: input, out: output)
+      assert run_pangrid_ok(from: "json", to: "text", in: input, out: output)
       assert_equal Text.new.write(make_xw), File.read(output)
     end
   end
@@ -51,8 +63,32 @@ class CLITest < PangridTest
       assert_match(/No writer for csv/, err)
       _, err = run_pangrid(from: "json", to: "text", in: input + "x", out: output)
       assert_match(/Cannot find file/, err)
+      refute run_pangrid_ok(from: "nope", to: "text", in: input, out: output)
       refute File.exist?(output)
     end
+  end
+
+  def test_format_errors_are_reported
+    with_input("not a csv grid") do |input, output|
+      _, err = run_pangrid(from: "csv", to: "text", in: input, out: output)
+      assert_match(/^Could not convert .*: No header row found/, err)
+      refute run_pangrid_ok(from: "csv", to: "text", in: input, out: output)
+      refute File.exist?(output)
+    end
+  end
+
+  def test_executable_exit_status
+    with_input("not a csv grid") do |input, output|
+      _, err, status = run_bin("--from", "csv", "--to", "text", "--in", input, "--out", output)
+      assert_equal 1, status.exitstatus
+      refute_match(/\.rb:\d+/, err, "should not print a backtrace")
+      _, _, status = run_bin("--from", "nope", "--to", "text", "--in", input, "--out", output)
+      assert_equal 1, status.exitstatus
+    end
+    _, _, status = run_bin
+    assert_equal 1, status.exitstatus
+    _, _, status = run_bin("--list")
+    assert status.success?
   end
 
   def test_executable

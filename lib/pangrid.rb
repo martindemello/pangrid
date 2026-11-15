@@ -19,19 +19,22 @@ module Pangrid
       opts = p.parse ARGV
 
       if opts[:list] || [:from, :to, :in, :out].all? {|k| opts[k]}
-        run opts
+        exit 1 unless run opts
       else
         p.educate
+        exit 1
       end
     end
   end
+
+  # Returns true on success. Errors are reported on stderr.
 
   def self.run(opts)
     Plugin.load_all
 
     if opts[:list]
       Plugin.list_all
-      return
+      return true
     end
 
     # run the converter
@@ -41,17 +44,17 @@ module Pangrid
 
     if !from or !from.method_defined? :read
       $stderr.puts "No reader for #{opts[:from]}"
-      return
+      return false
     end
 
     if !to or !to.method_defined? :write
       $stderr.puts "No writer for #{opts[:to]}"
-      return
+      return false
     end
 
     if !File.exist? opts[:in]
       $stderr.puts "Cannot find file #{opts[:in]}"
-      return
+      return false
     end
 
     reader = from.new
@@ -60,7 +63,13 @@ module Pangrid
     # .xlsx) aren't mangled by newline translation on Windows. Text readers
     # expect UTF-8; the binary reader reinterprets the bytes itself.
     input = File.binread(opts[:in]).force_encoding(Encoding::UTF_8)
-    output = writer.write(reader.read(input))
+    begin
+      output = writer.write(reader.read(input))
+    rescue PuzzleFormatError => e
+      $stderr.puts "Could not convert #{opts[:in]}: #{e.message}"
+      return false
+    end
     File.binwrite(opts[:out], output)
+    true
   end
 end
