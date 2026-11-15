@@ -1,3 +1,8 @@
+# [0.6.1] : 2026-11-14
+
+* Clue files (-c): ignore comment lines starting with #, such as the
+  header qxw adds to its answer files
+
 # [0.6.0] : 2026-11-14
 
 * Add a -c/--clues option to add clues from a text file to the input
