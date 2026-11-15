@@ -4,7 +4,8 @@ require 'open3'
 # Runs bin/pangrid on the sample files in test/testdata:
 #
 #   1ac2.qxw      grid from qxw, which has no clues
-#   1ac2.ans.txt  clues for that grid, in the -c/--clues format
+#   1ac2.ans.txt  clues for that grid, in the -c/--clues format, with the
+#                 comment header qxw writes
 #   1ac2.exolve   expected output: the grid and clues combined
 #
 # If a writer change alters the expected output, regenerate it with
