@@ -57,6 +57,41 @@ class RedditTest < PangridTest
     assert_equal DOWN, xw.down_clues
   end
 
+  def read_clues(clues)
+    RedditBlank.new.read("|A|B|\n|--|--|\n|C|D|\n\n" + clues)
+  end
+
+  def test_clue_number_formats
+    xw = read_clues("Across\n**1.** One\n3 Three\nDown\n1\\. Down one\nTwo\n")
+    assert_equal ["One", "Three"], xw.across_clues
+    # an unnumbered clue is kept rather than dropped
+    assert_equal ["Down one", "Two"], xw.down_clues
+  end
+
+  def test_number_must_be_a_whole_word
+    xw = read_clues("Across\n1. One\n3. Three\nDown\n1984 author\n2. Two\n")
+    assert_equal ["1984 author", "Two"], xw.down_clues
+  end
+
+  def test_short_clue_section_does_not_swallow_next_section
+    xw = read_clues("Across\n1. One\nDown\n1. Down one\n2. Down two\n")
+    assert_equal ["One"], xw.across_clues
+    assert_equal ["Down one", "Down two"], xw.down_clues
+  end
+
+  def test_down_before_across
+    xw = read_clues("Down\n1. Down one\n2. Down two\nAcross\n1. One\n3. Three\n")
+    assert_equal ["One", "Three"], xw.across_clues
+    assert_equal ["Down one", "Down two"], xw.down_clues
+  end
+
+  def test_missing_clue_headers
+    e = assert_raises(PuzzleFormatError) { read_clues("1. One\n") }
+    assert_match(/across/, e.message)
+    e = assert_raises(PuzzleFormatError) { read_clues("Across\n1. One\n") }
+    assert_match(/down/, e.message)
+  end
+
   def test_read_without_grid
     assert_raises(PuzzleFormatError) { RedditBlank.new.read("hello\nworld\n") }
   end
