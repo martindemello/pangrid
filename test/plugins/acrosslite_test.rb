@@ -106,6 +106,21 @@ class AcrossLiteBinaryTest < PangridTest
     assert_raises(PuzzleFormatError) { AcrossLiteBinary.new.read("not a puzzle".b) }
   end
 
+  def test_read_rejects_scrambled_puzzles
+    data = AcrossLiteBinary.new.write(make_xw(scrambled_state: 4))
+    e = assert_raises(PuzzleFormatError) { AcrossLiteBinary.new.read(data) }
+    assert_match(/Scrambled/, e.message)
+  end
+
+  def test_read_rejects_truncated_file
+    data = AcrossLiteBinary.new.write(make_xw)
+    [20, 0x34, 0x34 + 9].each do |n|
+      assert_raises(PuzzleFormatError, "truncated to #{n}") {
+        AcrossLiteBinary.new.read(data[0, n])
+      }
+    end
+  end
+
   def test_read_detects_bad_checksum
     data = AcrossLiteBinary.new.write(make_xw)
     data[0] = (data[0].ord ^ 0xff).chr

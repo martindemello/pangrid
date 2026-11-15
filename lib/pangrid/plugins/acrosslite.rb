@@ -126,9 +126,14 @@ class AcrossLiteBinary < Plugin
       xw.version, _, cs.scrambled, _,
       xw.width, xw.height, xw.n_clues, xw.puzzle_type, xw.scrambled_state =
       header.unpack(HEADER_FORMAT)
+    check("Could not recognise AcrossLite binary file") { xw.width }
+    check("Scrambled (locked) puzzles are not supported") {
+      xw.scrambled_state == 0
+    }
 
     # solution and fill = blocks of w*h bytes each
     size = xw.width * xw.height
+    check("AcrossLite binary file is truncated") { s.length >= h_end + 2 * size }
     xw.solution = unpack_solution xw, Latin1.decode(s[h_end, size])
     xw.fill = Latin1.decode(s[h_end + size, size])
     s = s[h_end + 2 * size .. -1]
