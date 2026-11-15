@@ -77,49 +77,120 @@ class CLITest < PangridTest
     end
   end
 
-  def test_options
+  # Run Pangrid.run_command_line in-process. Returns [stdout, stderr, status],
+  # where status is the exit status, or nil if it returned without exiting.
+  def run_cli(*args)
+    status = nil
+    out, err = capture_io do
+      Pangrid.run_command_line(args)
+    rescue SystemExit => e
+      status = e.status
+    end
+    [out, err, status]
+  end
+
+  def test_cli_convert
     with_input(Json.new.write(make_xw)) do |input, output|
-      _, _, status = run_bin("-f", "json", "-t", "text", "-i", input, "-o", output)
-      assert status.success?
+      _, err, status = run_cli("--from", "json", "--to", "text", "--in", input, "--out", output)
+      assert_nil status
+      assert_empty err
       assert_equal Text.new.write(make_xw), File.read(output)
     end
-    out, _, status = run_bin("--help")
-    assert status.success?
-    assert_match(/--from=FORMAT/, out)
-    _, err, status = run_bin("--bogus")
-    assert_equal 1, status.exitstatus
-    assert_match(/invalid option: --bogus/, err)
-    _, err, status = run_bin("--from")
-    assert_equal 1, status.exitstatus
-    assert_match(/missing argument/, err)
   end
 
-  def test_executable_exit_status
-    with_input("not a csv grid") do |input, output|
-      _, err, status = run_bin("--from", "csv", "--to", "text", "--in", input, "--out", output)
-      assert_equal 1, status.exitstatus
-      refute_match(/\.rb:\d+/, err, "should not print a backtrace")
-      _, _, status = run_bin("--from", "nope", "--to", "text", "--in", input, "--out", output)
-      assert_equal 1, status.exitstatus
-    end
-    _, _, status = run_bin
-    assert_equal 1, status.exitstatus
-    _, _, status = run_bin("--list")
-    assert status.success?
-  end
-
-  def test_executable
-    bin = File.expand_path('../bin/pangrid', __dir__)
-    lib = File.expand_path('../lib', __dir__)
+  def test_cli_short_options
     with_input(Json.new.write(make_xw)) do |input, output|
-      _, status = Open3.capture2e("ruby", "-I", lib, bin,
-                                  "--from", "json", "--to", "exolve-filled",
-                                  "--in", input, "--out", output)
+      _, _, status = run_cli("-f", "json", "-t", "text", "-i", input, "-o", output)
+      assert_nil status
+      assert_equal Text.new.write(make_xw), File.read(output)
+    end
+  end
+
+  def test_cli_list
+    out, _, status = run_cli("--list")
+    assert_nil status
+    assert_match(/Available plugins/, out)
+    out, _, _ = run_cli("-l")
+    assert_match(/Available plugins/, out)
+  end
+
+  def test_cli_help
+    %w(--help -h).each do |flag|
+      out, err, status = run_cli(flag)
+      assert_equal 0, status
+      assert_match(/^Usage: pangrid/, out)
+      assert_match(/--from=FORMAT/, out)
+      assert_empty err
+    end
+  end
+
+  def test_cli_version
+    %w(--version -v).each do |flag|
+      out, _, status = run_cli(flag)
+      assert_equal 0, status
+      assert_equal "pangrid #{Pangrid::VERSION}\n", out
+    end
+  end
+
+  def test_cli_without_arguments_prints_usage
+    out, err, status = run_cli
+    assert_equal 1, status
+    assert_empty out
+    assert_match(/^Usage: pangrid/, err)
+  end
+
+  def test_cli_incomplete_arguments_prints_usage
+    _, err, status = run_cli("--from", "json", "--to", "text")
+    assert_equal 1, status
+    assert_match(/^Usage: pangrid/, err)
+  end
+
+  def test_cli_invalid_options
+    _, err, status = run_cli("--bogus")
+    assert_equal 1, status
+    assert_match(/^Error: invalid option: --bogus/, err)
+    assert_match(/Try --help/, err)
+
+    _, err, status = run_cli("--from")
+    assert_equal 1, status
+    assert_match(/^Error: missing argument: --from/, err)
+  end
+
+  def test_cli_conversion_errors
+    with_input("not a csv grid") do |input, output|
+      _, err, status = run_cli("-f", "csv", "-t", "text", "-i", input, "-o", output)
+      assert_equal 1, status
+      assert_match(/^Could not convert .*: No header row found/, err)
+      refute File.exist?(output)
+
+      _, err, status = run_cli("-f", "nope", "-t", "text", "-i", input, "-o", output)
+      assert_equal 1, status
+      assert_match(/No reader for nope/, err)
+    end
+  end
+
+  def test_cli_does_not_modify_argv
+    args = ["--version"]
+    run_cli(*args)
+    assert_equal ["--version"], args
+    args = ["-f", "json", "-t", "text"]
+    run_cli(*args)
+    assert_equal ["-f", "json", "-t", "text"], args
+  end
+
+  # Smoke test of the executable itself; the option handling is tested
+  # in-process above.
+  def test_executable
+    with_input(Json.new.write(make_xw)) do |input, output|
+      _, _, status = run_bin("--from", "json", "--to", "exolve-filled",
+                             "--in", input, "--out", output)
       assert status.success?
       assert_includes File.read(output), "exolve-begin"
     end
-    out, status = Open3.capture2e("ruby", "-I", lib, bin, "--version")
-    assert status.success?
-    assert_includes out, Pangrid::VERSION
+    with_input("not a csv grid") do |input, output|
+      _, err, status = run_bin("-f", "csv", "-t", "text", "-i", input, "-o", output)
+      assert_equal 1, status.exitstatus
+      refute_match(/\.rb:\d+/, err, "should not print a backtrace")
+    end
   end
 end
