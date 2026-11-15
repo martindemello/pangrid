@@ -1,6 +1,29 @@
 require_relative 'test_helper'
 
 class XWordTest < PangridTest
+  def test_attributes
+    xw = XWord.new(title: "T", width: 2)
+    assert_equal "T", xw.title
+    assert_equal "T", xw[:title]
+    assert_equal "T", xw["title"]
+    xw["author"] = "A"
+    assert_equal "A", xw.author
+    assert_equal({width: 2, title: "T", author: "A", across_clues: [], down_clues: []},
+                 xw.to_h)
+  end
+
+  def test_clues_default_to_empty
+    assert_equal [], XWord.new.across_clues
+    assert_equal [], XWord.new.down_clues
+  end
+
+  def test_unknown_attributes_raise
+    assert_raises(NoMethodError) { XWord.new(titel: "T") }
+    assert_raises(NoMethodError) { XWord.new.titel }
+    assert_raises(NoMethodError) { XWord.new[:titel] }
+    assert_raises(NoMethodError) { XWord.new["titel"] = "T" }
+  end
+
   def test_numbering
     xw = make_xw
     across, down = xw.number

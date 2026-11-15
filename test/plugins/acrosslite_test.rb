@@ -130,11 +130,11 @@ class AcrossLiteBinaryTest < PangridTest
 
   def test_ext_helpers
     w = AcrossLiteBinary.new
-    e = OpenStruct.new(elapsed: 10, stopped: false)
+    e = Extension.new(elapsed: 10, stopped: false)
     assert_equal "10,0\0", w.send(:write_ltim, e)
-    e = OpenStruct.new(grid: [65, 66])
+    e = Extension.new(grid: [65, 66])
     assert_equal "AB", w.send(:write_gext, e)
-    e = OpenStruct.new(data: "AB")
+    e = Extension.new(data: "AB")
     w.send(:read_gext, e)
     assert_equal [65, 66], e.grid
   end

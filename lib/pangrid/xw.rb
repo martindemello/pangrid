@@ -1,5 +1,3 @@
-require 'ostruct'
-
 module Pangrid
 
 class PuzzleFormatError < StandardError
@@ -77,7 +75,44 @@ end
 # across_clues = string[]
 # down_clues = string[]
 # rebus = { solution => [int, rebus_char] }
-class XWord < OpenStruct
+class XWord
+  # Metadata shared by all formats
+  COMMON = %i(width height solution across_clues down_clues
+              title author copyright notes preamble rebus)
+
+  # AcrossLite binary format fields
+  #   clues: across and down clues interleaved in numerical order
+  #   fill: the solver's progress
+  #   mark: AcrossLite text format rebus flag
+  ACROSSLITE = %i(clues n_clues fill version puzzle_type scrambled_state
+                  extensions mark time_elapsed)
+
+  ATTRIBUTES = COMMON + ACROSSLITE
+
+  attr_accessor(*ATTRIBUTES)
+
+  # Unknown attributes raise NoMethodError rather than being silently
+  # accepted, so that typos show up immediately.
+  def initialize(**args)
+    @across_clues = []
+    @down_clues = []
+    args.each {|k, v| self[k] = v}
+  end
+
+  def [](k)
+    check_attribute(k)
+    public_send(k)
+  end
+
+  def []=(k, v)
+    check_attribute(k)
+    public_send(:"#{k}=", v)
+  end
+
+  def to_h
+    ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact
+  end
+
   # Clue numbering
   def black?(x, y)
     solution[y][x].black?
@@ -183,6 +218,12 @@ class XWord < OpenStruct
           r.symbol = k.to_s
         end
       end
+    end
+  end
+
+  def check_attribute(k)
+    unless ATTRIBUTES.include?(k.to_sym)
+      raise NoMethodError, "unknown XWord attribute #{k}"
     end
   end
 

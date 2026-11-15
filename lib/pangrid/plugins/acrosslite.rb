@@ -7,8 +7,6 @@
 #   AcrossLiteBinary : read, write
 #   AcrossLiteText : read, write
 
-require 'ostruct'
-
 module Pangrid
 
 GRID_CHARS = {:black => '.', :null => '?'}
@@ -28,6 +26,16 @@ module Latin1
     s.dup.force_encoding(Encoding::ISO_8859_1).encode(Encoding::UTF_8)
   end
 end
+
+# Binary format extension sections. `data` holds the raw bytes; the other
+# fields are populated by the section-specific readers.
+Extension = Struct.new(:section, :len, :checksum, :data,
+                       :elapsed, :stopped,  # LTIM
+                       :grid,               # GRBS, GEXT
+                       :rebus,              # RTBL
+                       keyword_init: true)
+
+Checksums = Struct.new(:global, :cib, :masked_low, :masked_high, :scrambled)
 
 # CRC checksum for binary format
 class Checksum
@@ -100,7 +108,7 @@ class AcrossLiteBinary < Plugin
 
   def initialize
     @xw = XWord.new
-    @cs = OpenStruct.new
+    @cs = Checksums.new
     @xw.extensions = []
   end
 
@@ -135,7 +143,7 @@ class AcrossLiteBinary < Plugin
 
     # extensions: 8-byte header + len bytes data + \0
     while (s.length > 8) do
-      e = OpenStruct.new
+      e = Extension.new
       e.section, e.len, e.checksum = s.unpack(EXT_HEADER_FORMAT)
       check("Unrecognised extension #{e.section}") { EXTENSIONS.include? e.section }
       size = 8 + e.len + 1
@@ -181,15 +189,13 @@ class AcrossLiteBinary < Plugin
     xw.encode_rebus!
     if not xw.rebus.empty?
       # GRBS
-      e = OpenStruct.new
-      e.section = "GRBS"
+      e = Extension.new(section: "GRBS")
       e.grid = xw.to_array({:black => 0, :null => 0}) {|s|
         s.rebus? ? s.solution.symbol.to_i : 0
       }.flatten
       xw.extensions << e
       # RTBL
-      e = OpenStruct.new
-      e.section = "RTBL"
+      e = Extension.new(section: "RTBL")
       e.rebus = {}
       xw.rebus.each do |long, (k, short)|
         e.rebus[k] = [long, short]
@@ -257,7 +263,6 @@ class AcrossLiteBinary < Plugin
     # record these for file inspection, though they're unlikely to be useful
     if (ltim = get_extension("LTIM"))
       xw.time_elapsed = ltim.elapsed
-      xw.paused
     end
 
     # we need both grbs and rtbl
@@ -370,7 +375,7 @@ class AcrossLiteBinary < Plugin
   end
 
   def checksums
-    c = OpenStruct.new
+    c = Checksums.new
     c.masked_low, c.masked_high = magic_checksums
     c.cib = header_checksum
     c.global = global_checksum

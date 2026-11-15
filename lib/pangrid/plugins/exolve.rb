@@ -52,8 +52,10 @@ module ExolveReader
     xw = XWord.new
     s = sections(lines)
     s.each do |_, field, data|
-      if %w(title copyright prelude).include? field
+      if %w(title copyright).include? field
         xw[field] = data
+      elsif field == "prelude"
+        xw.preamble = data
       elsif field == "setter"
         xw.author = data
       elsif %w(height width).include? field

@@ -43,7 +43,7 @@ class ExolveTest < PangridTest
     assert_equal 3, xw.width
     assert_equal 3, xw.height
     assert_equal "Title", xw.title
-    assert_equal "Hi", xw.prelude
+    assert_equal "Hi", xw.preamble
     assert_equal %w(CAT A#O BEE), grid_strings(xw)
     assert_equal ACROSS, xw.across_clues
   end
@@ -52,7 +52,8 @@ class ExolveTest < PangridTest
     # "own" used to match as a substring of "across down"
     text = "exolve-begin\n  exolve-own:\n    x\n  exolve-grid:\n    AB\nexolve-end\n"
     xw = ExolveFilled.new.read(text)
-    assert_nil xw.own_clues
+    assert_equal [], xw.across_clues
+    assert_equal [], xw.down_clues
   end
 
   def test_read_null_cells
