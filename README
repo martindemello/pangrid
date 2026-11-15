@@ -5,9 +5,6 @@ Examples:
 # Run from the command line
 $ pangrid -f across-lite-binary -t text -i sample.puz -o sample.txt
 
-# Start the webserver
-$ pangrid -w
-
 # List available plugins
 $ pangrid -l
 
@@ -18,5 +15,4 @@ Options:
   -i, --in=<s>      Input file
   -o, --out=<s>     Output file
   -l, --list        List available format plugins
-  -w, --web         Launch webserver
   -h, --help        Show this message

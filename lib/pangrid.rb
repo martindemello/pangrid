@@ -2,7 +2,6 @@ require_relative 'deps/trollop'
 
 require_relative 'pangrid/version'
 require_relative 'pangrid/plugin'
-require_relative 'pangrid/frontend/webrick'
 
 module Pangrid
   def self.run_command_line
@@ -14,15 +13,12 @@ module Pangrid
       opt :in, "Input file", :type => :string
       opt :out, "Output file", :type => :string
       opt :list, "List available format plugins"
-      opt :web, "Launch webserver"
     end
 
     Trollop::with_standard_exception_handling p do
       opts = p.parse ARGV
 
-      if opts[:web]
-        run_webserver 1234
-      elsif opts[:list] || [:from, :to, :in, :out].all? {|k| opts[k]}
+      if opts[:list] || [:from, :to, :in, :out].all? {|k| opts[k]}
         run opts
       else
         p.educate

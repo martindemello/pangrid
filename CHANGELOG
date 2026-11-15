@@ -1,3 +1,7 @@
+# Unreleased
+
+* Remove the web frontend (and the webrick dependency)
+
 # [0.5.3] : 2024-11-27
 
 * Improve the qxw reader
