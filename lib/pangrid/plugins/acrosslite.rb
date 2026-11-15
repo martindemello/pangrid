@@ -14,6 +14,21 @@ module Pangrid
 GRID_CHARS = {:black => '.', :null => '?'}
 FILL_CHARS = {:black => '.', :null => '-'}
 
+# The binary format stores text as ISO-8859-1; we use UTF-8 internally.
+module Latin1
+  # String -> ISO-8859-1 bytes (binary strings are passed through)
+  def self.bytes(s)
+    return s.b if [Encoding::BINARY, Encoding::ISO_8859_1].include?(s.encoding)
+    s.encode(Encoding::ISO_8859_1, undef: :replace, invalid: :replace,
+             replace: '?').b
+  end
+
+  # ISO-8859-1 bytes -> UTF-8 String
+  def self.decode(s)
+    s.dup.force_encoding(Encoding::ISO_8859_1).encode(Encoding::UTF_8)
+  end
+end
+
 # CRC checksum for binary format
 class Checksum
   attr_accessor :sum
@@ -36,7 +51,7 @@ class Checksum
   end
 
   def add_string(s)
-    s.bytes.map {|b| add_char b}
+    Latin1.bytes(s).bytes.map {|b| add_char b}
   end
 
   def add_string_0(s)
@@ -90,7 +105,7 @@ class AcrossLiteBinary < Plugin
   end
 
   def read(data)
-    s = data.force_encoding("ISO-8859-1")
+    s = data.b
 
     i = s.index(FILE_MAGIC)
     check("Could not recognise AcrossLite binary file") { i }
@@ -106,13 +121,17 @@ class AcrossLiteBinary < Plugin
 
     # solution and fill = blocks of w*h bytes each
     size = xw.width * xw.height
-    xw.solution = unpack_solution xw, s[h_end, size]
-    xw.fill = s[h_end + size, size]
+    xw.solution = unpack_solution xw, Latin1.decode(s[h_end, size])
+    xw.fill = Latin1.decode(s[h_end + size, size])
     s = s[h_end + 2 * size .. -1]
 
     # title, author, copyright, clues * n, notes = zero-terminated strings
     xw.title, xw.author, xw.copyright, *xw.clues, xw.notes, s =
       s.split("\0", xw.n_clues + 5)
+    check("Could not read clues from AcrossLite binary file") { s }
+    xw.title, xw.author, xw.copyright, xw.notes =
+      [xw.title, xw.author, xw.copyright, xw.notes].map {|x| Latin1.decode(x)}
+    xw.clues = xw.clues.map {|x| Latin1.decode(x)}
 
     # extensions: 8-byte header + len bytes data + \0
     while (s.length > 8) do
@@ -182,10 +201,10 @@ class AcrossLiteBinary < Plugin
     header = h.pack(HEADER_FORMAT)
 
     strings = [xw.title, xw.author, xw.copyright] + xw.clues + [xw.notes]
-    strings = strings.map {|x| x + "\0"}.join
+    strings = strings.map {|x| Latin1.bytes(x) + "\0".b}.join
 
     [header, pack_solution(xw), xw.fill, strings, write_extensions].map {|x|
-      x.force_encoding("ISO-8859-1")
+      Latin1.bytes(x)
     }.join
   end
 
@@ -266,7 +285,7 @@ class AcrossLiteBinary < Plugin
     check("Could not read extension RTBL") { m }
     e.rebus = {}
     e.data.scan(rx).each {|_, k, v|
-      e.rebus[k.to_i] = [v, '-']
+      e.rebus[k.to_i] = [Latin1.decode(v), '-']
     }
   end
 

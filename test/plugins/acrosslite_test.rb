@@ -24,7 +24,7 @@ class AcrossLiteBinaryTest < PangridTest
 
   def test_write_header
     out = AcrossLiteBinary.new.write(make_xw)
-    assert_equal Encoding::ISO_8859_1, out.encoding
+    assert_equal Encoding::BINARY, out.encoding
     assert_equal "ACROSS&DOWN\0", out[2, 12]
     assert_equal [3, 3, 4], out[0x2c, 6].unpack("C2v")
   end
@@ -39,6 +39,28 @@ class AcrossLiteBinaryTest < PangridTest
     assert_equal "Copyright", xw.copyright
     assert_equal "", xw.notes
     assert_equal "1.3", xw.version
+  end
+
+  def test_text_is_stored_as_latin1
+    xw = make_xw(title: "Café", across: ["Naïve", "Bee sound"])
+    out = AcrossLiteBinary.new.write(xw)
+    assert_includes out, "Caf\xE9\0".b
+    refute_includes out, "Café".b
+    read = AcrossLiteBinary.new.read(out)
+    assert_equal "Café", read.title
+    assert_equal Encoding::UTF_8, read.title.encoding
+    assert_equal ["Naïve", "Bee sound"], read.across_clues
+  end
+
+  def test_unrepresentable_characters_are_replaced
+    out = AcrossLiteBinary.new.write(make_xw(title: "→ x"))
+    assert_equal "? x", AcrossLiteBinary.new.read(out).title
+  end
+
+  def test_read_does_not_modify_input
+    data = AcrossLiteBinary.new.write(make_xw).force_encoding("UTF-8")
+    AcrossLiteBinary.new.read(data)
+    assert_equal Encoding::UTF_8, data.encoding
   end
 
   def test_clues_are_interleaved_by_number
