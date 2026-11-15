@@ -1,4 +1,4 @@
-# Unreleased
+# [0.6.0] : 2026-11-14
 
 * Add a -c/--clues option to add clues from a text file to the input
   crossword
