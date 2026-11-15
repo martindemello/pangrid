@@ -37,6 +37,16 @@ class XWordTest < PangridTest
     assert_equal [3, nil, nil], xw.solution[2].map(&:number)
   end
 
+  def test_renumbering_clears_old_numbers
+    xw = make_xw
+    xw.number
+    # blacking out the top left square means (0, 0) no longer starts a word
+    xw.solution[0][0].solution = :black
+    xw.number
+    assert_nil xw.solution[0][0].number
+    assert_equal [nil, 1, 2], xw.solution[0].map(&:number)
+  end
+
   def test_numbering_with_words
     _, _, words_a, words_d = make_xw.number(true)
     assert_equal %w(CAT BEE), words_a

@@ -149,6 +149,7 @@ class XWord
   def number(words = false)
     n, across, down = 1, [], []
     words_a, words_d = [], []
+    each_cell {|c| c.number = nil}
     (0 ... height).each do |y|
       (0 ... width).each do |x|
         if across? x, y
