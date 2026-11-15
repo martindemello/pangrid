@@ -64,8 +64,7 @@ class AcrossLiteBinaryTest < PangridTest
   end
 
   def test_clues_are_interleaved_by_number
-    xw = make_xw
-    AcrossLiteBinary.new.write(xw)
+    xw = AcrossLiteBinary.new.read(AcrossLiteBinary.new.write(make_xw))
     assert_equal ["Feline", "Taxi", "Foot digit", "Bee sound"], xw.clues
   end
 
@@ -77,6 +76,23 @@ class AcrossLiteBinaryTest < PangridTest
     assert cell.rebus?
     assert_equal "CAT", cell.solution.solution
     assert_equal ["GRBS", "RTBL"], out.extensions.map(&:section)
+  end
+
+  def test_write_does_not_modify_input
+    xw = make_xw
+    xw.solution[0][0].solution = Rebus.new("CAT")
+    first = AcrossLiteBinary.new.write(xw)
+    assert_nil xw.clues
+    assert_nil xw.extensions
+    assert_equal first, AcrossLiteBinary.new.write(xw)
+  end
+
+  def test_rewriting_a_rebus_puzzle_does_not_duplicate_extensions
+    xw = make_xw
+    xw.solution[0][0].solution = Rebus.new("CAT")
+    once = AcrossLiteBinary.new.write(xw)
+    twice = AcrossLiteBinary.new.write(AcrossLiteBinary.new.read(once))
+    assert_equal once, twice
   end
 
   def test_write_rejects_extra_clues

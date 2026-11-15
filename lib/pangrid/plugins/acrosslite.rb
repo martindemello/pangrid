@@ -156,7 +156,9 @@ class AcrossLiteBinary < Plugin
   end
 
   def write(xw)
-    @xw = xw
+    # work on a copy so that the fields filled in below don't leak back into
+    # the caller's puzzle
+    @xw = xw = xw.dup
 
     # fill in some fields that might not be present (checksums needs this)
     pack_clues
@@ -167,7 +169,10 @@ class AcrossLiteBinary < Plugin
     xw.scrambled_state ||= 0
     xw.version = "1.3"
     xw.notes ||= ""
-    xw.extensions ||= []
+    # rebus extensions are regenerated from the grid below
+    xw.extensions = (xw.extensions || []).reject {|e|
+      %w(GRBS RTBL).include? e.section
+    }
     xw.title ||= ""
     xw.author ||= ""
     xw.copyright ||= ""
