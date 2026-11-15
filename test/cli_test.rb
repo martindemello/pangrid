@@ -21,6 +21,21 @@ class CLITest < PangridTest
     end
   end
 
+  def test_binary_roundtrip
+    puz = AcrossLiteBinary.new.write(make_xw(title: "Café"))
+    with_input(puz) do |input, output|
+      run_pangrid(from: "across-lite-binary", to: "across-lite-binary", in: input, out: output)
+      assert_equal puz, File.binread(output)
+    end
+  end
+
+  def test_utf8_text_input
+    with_input(AcrossLiteText.new.write(make_xw(title: "Café"))) do |input, output|
+      run_pangrid(from: "across-lite-text", to: "exolve-filled", in: input, out: output)
+      assert_includes File.read(output, encoding: "UTF-8"), "exolve-title: Café"
+    end
+  end
+
   def test_list
     out, _ = run_pangrid(list: true)
     assert_match(/Available plugins/, out)

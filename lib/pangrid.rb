@@ -56,10 +56,11 @@ module Pangrid
 
     reader = from.new
     writer = to.new
-    input = IO.read(opts[:in])
+    # Read and write in binary mode so that binary formats (.puz, .png,
+    # .xlsx) aren't mangled by newline translation on Windows. Text readers
+    # expect UTF-8; the binary reader reinterprets the bytes itself.
+    input = File.binread(opts[:in]).force_encoding(Encoding::UTF_8)
     output = writer.write(reader.read(input))
-    File.open(opts[:out], "w") do |f|
-      f.print output
-    end
+    File.binwrite(opts[:out], output)
   end
 end
