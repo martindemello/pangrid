@@ -1,3 +1,9 @@
 source 'https://rubygems.org'
 gem 'webrick'
 gem 'chunky_png'
+
+group :test do
+  gem 'rake'
+  gem 'minitest', '~> 5.0'
+  gem 'simplecov', require: false
+end

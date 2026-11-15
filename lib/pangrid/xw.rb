@@ -174,8 +174,8 @@ class XWord < OpenStruct
     each_cell do |c|
       if c.rebus?
         r = c.solution
-        if self.rebus[s]
-          sym, _ = self.rebus[s]
+        if self.rebus[r.solution]
+          sym, _ = self.rebus[r.solution]
           r.symbol = sym.to_s
         else
           k += 1

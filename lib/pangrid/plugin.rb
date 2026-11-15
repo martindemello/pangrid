@@ -43,9 +43,12 @@ class Plugin
     REGISTRY[name] = subclass
   end
 
+  # Plugins register themselves via `inherited` when their file is first
+  # required, so the registry must not be cleared here: `require` will not
+  # re-run an already loaded file.
   def self.load_all
-    REGISTRY.clear
     FAILED.clear
+    MISSING_DEPS.clear
     plugins = Dir.glob(File.dirname(__FILE__) + "/plugins/*.rb")
     plugins.each do |f|
       load_plugin f
