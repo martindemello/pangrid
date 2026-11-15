@@ -69,8 +69,22 @@ class ExolveTest < PangridTest
     assert_equal "Author", xw.author
   end
 
+  def test_read_without_dimensions
+    text = "exolve-begin\n  exolve-grid:\n    ABC\n    D.E\nexolve-end\n"
+    xw = ExolveFilled.new.read(text)
+    assert_equal [3, 2], [xw.width, xw.height]
+  end
+
   def test_read_errors
     assert_raises(PuzzleFormatError) { ExolveFilled.new.read("exolve-end\n") }
     assert_raises(PuzzleFormatError) { ExolveFilled.new.read("exolve-begin\n") }
+    e = assert_raises(PuzzleFormatError) {
+      ExolveFilled.new.read("exolve-begin\n  exolve-title: x\nexolve-end\n")
+    }
+    assert_match(/grid missing/, e.message)
+    e = assert_raises(PuzzleFormatError) {
+      ExolveFilled.new.read("exolve-begin\n  exolve-width: 3\n  exolve-grid:\n    AB\nexolve-end\n")
+    }
+    assert_match(/does not match/, e.message)
   end
 end

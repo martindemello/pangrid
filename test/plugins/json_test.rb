@@ -25,6 +25,23 @@ class JsonPluginTest < PangridTest
     assert_equal "AB", xw.solution[0][0].solution.solution
   end
 
+  def test_read_errors
+    cell = '{"x":0,"y":0,"contents":"A"}'
+    bad = {
+      'not json' => /Invalid JSON/,
+      '[]' => /JSON object/,
+      '{"rows":0,"cols":1,"cells":[]}' => /positive integers/,
+      '{"rows":1,"cols":1}' => /cells must be a list/,
+      '{"rows":1,"cols":1,"cells":[{"x":1,"y":0,"contents":"A"}]}' => /outside the grid/,
+      '{"rows":1,"cols":1,"cells":[{"x":0,"y":0}]}' => /string contents/,
+      %({"rows":1,"cols":2,"cells":[#{cell}]}) => /1 cells are missing/,
+    }
+    bad.each do |json, msg|
+      e = assert_raises(PuzzleFormatError, json) { Json.new.read(json) }
+      assert_match msg, e.message
+    end
+  end
+
   def test_rebus_roundtrip
     xw = make_xw
     xw.solution[0][0].solution = Rebus.new("CAT")

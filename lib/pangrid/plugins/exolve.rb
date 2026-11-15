@@ -66,6 +66,14 @@ module ExolveReader
         xw.solution = parse_grid(data)
       end
     end
+    check("exolve-grid missing") { xw.solution && !xw.solution.empty? }
+    xw.height ||= xw.solution.length
+    xw.width ||= xw.solution[0].length
+    check("Grid does not match exolve-width/exolve-height " +
+          "(#{xw.width}x#{xw.height})") {
+      xw.solution.length == xw.height &&
+        xw.solution.all? {|row| row.length == xw.width}
+    }
     xw
   end
 
