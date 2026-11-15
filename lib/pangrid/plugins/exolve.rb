@@ -98,9 +98,9 @@ module ExolveReader
     headers
   end
 
-  # "12 Clue text (5)" -> "Clue text (5)"
+  # "12 Clue text (5)" or "12. Clue text (5)" -> "Clue text (5)"
   def strip_clue_number(clue)
-    clue.sub(/^\d+\s+/, '')
+    clue.sub(/^\d+\.?\s+/, '')
   end
 
   def parse_grid_char(char)

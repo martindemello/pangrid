@@ -69,6 +69,11 @@ class ExolveTest < PangridTest
     assert_equal "Author", xw.author
   end
 
+  def test_read_clue_numbers_with_dots
+    text = "exolve-begin\n  exolve-grid:\n    AB\n    CD\n  exolve-across:\n    1. One (2)\n    3 Three (2)\nexolve-end\n"
+    assert_equal ["One (2)", "Three (2)"], ExolveFilled.new.read(text).across_clues
+  end
+
   def test_read_without_dimensions
     text = "exolve-begin\n  exolve-grid:\n    ABC\n    D.E\nexolve-end\n"
     xw = ExolveFilled.new.read(text)
