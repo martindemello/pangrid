@@ -61,7 +61,7 @@ module ExolveReader
       elsif %w(height width).include? field
         xw[field] = data.to_i
       elsif %w(across down).include? field
-        xw["#{field}_clues"] = data.map {|c| strip_clue_number(c)}
+        xw["#{field}_clues"] = strip_clue_numbers(data)
       elsif field == "grid"
         xw.solution = parse_grid(data)
       end
@@ -96,11 +96,6 @@ module ExolveReader
     end
     headers.pop
     headers
-  end
-
-  # "12 Clue text (5)" or "12. Clue text (5)" -> "Clue text (5)"
-  def strip_clue_number(clue)
-    clue.sub(/^\d+\.?\s+/, '')
   end
 
   def parse_grid_char(char)

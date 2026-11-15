@@ -70,6 +70,27 @@ class PluginTest < PangridTest
     assert_equal "bad", e.message
   end
 
+  def test_strip_clue_numbers
+    p = Plugin.new
+    clues = ["1. One", "2\\. Two", "**3.** Three", "  4 Four", "(5) Five", "Six"]
+    assert_equal %w(One Two Three Four Five Six), p.strip_clue_numbers(clues)
+  end
+
+  def test_strip_clue_numbers_requires_a_whole_number
+    p = Plugin.new
+    assert_equal ["1984 author"], p.strip_clue_numbers(["1984 author"], [1])
+    assert_equal ["1, 5 Linked clue"], p.strip_clue_numbers(["1, 5 Linked clue"])
+    assert_equal ["1. One"], p.strip_clue_numbers(["1. One"], [2])
+    assert_equal ["10th"], p.strip_clue_numbers(["10th"])
+  end
+
+  def test_strip_clue_numbers_with_expected_numbers
+    p = Plugin.new
+    assert_equal ["One", "Three"], p.strip_clue_numbers(["1. One", "3. Three"], [1, 3])
+    # clues beyond the list of numbers are left as they are
+    assert_equal ["One", "2. Two"], p.strip_clue_numbers(["1. One", "2. Two"], [1])
+  end
+
   def test_load_all_is_repeatable
     before = Plugin::REGISTRY.dup
     Plugin.load_all

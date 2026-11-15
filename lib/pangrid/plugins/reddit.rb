@@ -64,13 +64,6 @@ class RedditBlank < Plugin
     c == "" || c == "*.*" || c =~ /^(\^\d+)?[[:alpha:]]*$/ # allow partially filled grids
   end
 
-  # make a best-attempt effort to strip off the clue number, e.g.
-  #   "1\\. Clue", "**1.** Clue", "1 Clue" -> "Clue"
-  # clues without the expected number are left as they are.
-  def strip_clue(n, clue)
-    clue.sub(/\A\W*#{n}\b\W*?\s+/, '').strip
-  end
-
   # The lines following a clue section header, up to the next header
   def clue_section(lines, start, other)
     stop = other > start ? other : lines.length
@@ -127,8 +120,8 @@ class RedditBlank < Plugin
     check("Could not find down clues") { dix }
     ac = clue_section(clues, aix, dix).take(across.length)
     dn = clue_section(clues, dix, aix).take(down.length)
-    xw.across_clues = across.zip(ac).map {|n, c| c && strip_clue(n, c)}.compact
-    xw.down_clues = down.zip(dn).map {|n, c| c && strip_clue(n, c)}.compact
+    xw.across_clues = strip_clue_numbers(ac, across)
+    xw.down_clues = strip_clue_numbers(dn, down)
 
     xw
   end
