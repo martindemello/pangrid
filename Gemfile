@@ -1,5 +1,6 @@
 source 'https://rubygems.org'
 gem 'chunky_png'
+gem 'csv'
 
 group :test do
   gem 'rake'
