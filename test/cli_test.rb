@@ -77,6 +77,23 @@ class CLITest < PangridTest
     end
   end
 
+  def test_options
+    with_input(Json.new.write(make_xw)) do |input, output|
+      _, _, status = run_bin("-f", "json", "-t", "text", "-i", input, "-o", output)
+      assert status.success?
+      assert_equal Text.new.write(make_xw), File.read(output)
+    end
+    out, _, status = run_bin("--help")
+    assert status.success?
+    assert_match(/--from=FORMAT/, out)
+    _, err, status = run_bin("--bogus")
+    assert_equal 1, status.exitstatus
+    assert_match(/invalid option: --bogus/, err)
+    _, err, status = run_bin("--from")
+    assert_equal 1, status.exitstatus
+    assert_match(/missing argument/, err)
+  end
+
   def test_executable_exit_status
     with_input("not a csv grid") do |input, output|
       _, err, status = run_bin("--from", "csv", "--to", "text", "--in", input, "--out", output)

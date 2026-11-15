@@ -4,7 +4,6 @@ begin
   require 'simplecov'
   SimpleCov.start do
     add_filter '/test/'
-    add_filter '/lib/deps/'
     enable_coverage :branch
   end
 rescue LoadError

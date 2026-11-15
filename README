@@ -10,9 +10,10 @@ $ pangrid -l
 
 
 Options:
-  -f, --from=<s>    Format to convert from
-  -t, --to=<s>      Format to convert to
-  -i, --in=<s>      Input file
-  -o, --out=<s>     Output file
-  -l, --list        List available format plugins
-  -h, --help        Show this message
+    -f, --from=FORMAT                Format to convert from
+    -t, --to=FORMAT                  Format to convert to
+    -i, --in=FILE                    Input file
+    -o, --out=FILE                   Output file
+    -l, --list                       List available format plugins
+    -v, --version                    Print version and exit
+    -h, --help                       Show this message
