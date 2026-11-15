@@ -99,6 +99,15 @@ class XWord
     args.each {|k, v| self[k] = v}
   end
 
+  # Writers can rely on the clue lists being arrays
+  def across_clues=(clues)
+    @across_clues = clues || []
+  end
+
+  def down_clues=(clues)
+    @down_clues = clues || []
+  end
+
   def [](k)
     check_attribute(k)
     public_send(k)

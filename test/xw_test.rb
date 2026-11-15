@@ -15,6 +15,10 @@ class XWordTest < PangridTest
   def test_clues_default_to_empty
     assert_equal [], XWord.new.across_clues
     assert_equal [], XWord.new.down_clues
+    assert_equal [], XWord.new(across_clues: nil).across_clues
+    xw = XWord.new
+    xw.down_clues = nil
+    assert_equal [], xw.down_clues
   end
 
   def test_unknown_attributes_raise
