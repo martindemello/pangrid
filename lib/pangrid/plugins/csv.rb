@@ -47,19 +47,23 @@ class CSV < Plugin
     black, empty = header["black"], header["empty"]
     xw.width = header["width"].to_i
     xw.height = header["height"].to_i
+    offset = header["offset"].to_i
+    check("Width and Height must be positive") { xw.width > 0 && xw.height > 0 }
     xw.solution = []
-    xw.height.times do
+    xw.height.times do |y|
       row = s.shift
-      check("Row does not have #{xw.width} cells: \n" +
-            row.join(',')) { row.length == xw.width }
-      xw.solution << row.map do |c|
+      check("Expected #{xw.height} grid rows, found #{y}") { row }
+      cells = row[offset, xw.width] || []
+      check("Row does not have #{xw.width} cells starting at column " +
+            "#{offset}: \n" + row.join(',')) { cells.length == xw.width }
+      xw.solution << cells.map do |c|
         cell = Cell.new
         if c == black
           cell.solution = :black
         elsif c == empty or c == nil
           cell.solution = :null
         else
-          cell.solution = c.gsub /[^[:alpha:]]/, ''
+          cell.solution = c.gsub(/[^[:alpha:]]/, '')
         end
         cell
       end
