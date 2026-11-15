@@ -49,12 +49,16 @@ class PluginTest < PangridTest
       File.write(bad, "raise 'boom'")
       missing = File.join(dir, "missing_plugin.rb")
       File.write(missing, "Pangrid.require_for_plugin('missing', ['no_such_gem_xyz'])")
+      unguarded = File.join(dir, "unguarded_plugin.rb")
+      File.write(unguarded, "require 'no_such_gem_xyz'")
       Plugin.load_plugin(bad)
       Plugin.load_plugin(missing)
+      Plugin.load_plugin(unguarded)
       assert_includes Plugin::FAILED, "bad_plugin.rb: boom"
+      assert Plugin::FAILED.any? {|f| f.start_with?("unguarded_plugin.rb: cannot load such file")}
       assert_equal ["no_such_gem_xyz"], Plugin::MISSING_DEPS["missing"]
     ensure
-      Plugin::FAILED.delete("bad_plugin.rb: boom")
+      Plugin::FAILED.reject! {|f| f =~ /^(bad|unguarded)_plugin.rb/}
       Plugin::MISSING_DEPS.delete("missing")
     end
   end

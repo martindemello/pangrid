@@ -1,7 +1,7 @@
-require 'chunky_png'
-
 module Pangrid
-  
+
+  require_for_plugin 'png-thumbnail', ['chunky_png']
+
   class PNGThumbnail < Plugin
     attr_reader :scale, :border
 
