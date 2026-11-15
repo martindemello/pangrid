@@ -1,5 +1,7 @@
 # Unreleased
 
+* Add a -c/--clues option to add clues from a text file to the input
+  crossword
 * Remove the web frontend (and the webrick dependency)
 * AcrossLite binary: convert text to and from ISO-8859-1 (fixes accented
   characters), don't duplicate rebus sections when re-writing a puzzle, and

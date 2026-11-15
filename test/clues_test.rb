@@ -1,0 +1,67 @@
+require_relative 'test_helper'
+
+class ClueListTest < PangridTest
+  CLUES = <<~EOF
+    Across
+
+    1 Feline (3)
+    3 Bee sound (3)
+
+    Down
+
+    1 Taxi (3)
+    2 Foot digit (3)
+  EOF
+
+  def test_read
+    c = ClueList.read(CLUES)
+    assert_equal({1 => "Feline (3)", 3 => "Bee sound (3)"}, c.across)
+    assert_equal({1 => "Taxi (3)", 2 => "Foot digit (3)"}, c.down)
+  end
+
+  def test_apply
+    xw = make_xw(across: ["[CAT]", "[BEE]"], down: ["[CAB]", "[TOE]"])
+    ClueList.read(CLUES).apply(xw)
+    assert_equal ["Feline (3)", "Bee sound (3)"], xw.across_clues
+    assert_equal ["Taxi (3)", "Foot digit (3)"], xw.down_clues
+  end
+
+  def test_order_and_markup_do_not_matter
+    clues = <<~EOF
+      **Down:**
+      2. Foot digit
+      **1.** Taxi
+      ACROSS
+      3\\. Bee sound
+      1) Feline
+    EOF
+    xw = ClueList.read(clues).apply(make_xw(across: [], down: []))
+    assert_equal ["Feline", "Bee sound"], xw.across_clues
+    assert_equal ["Taxi", "Foot digit"], xw.down_clues
+  end
+
+  def test_linked_clue_text_is_kept
+    c = ClueList.read("Across\n1, 3 Linked clue (3, 3)\n3 See 1\n")
+    assert_equal({1 => "1, 3 Linked clue (3, 3)", 3 => "See 1"}, c.across)
+  end
+
+  def test_read_errors
+    {
+      "" => /No clues found/,
+      "1 Feline\n" => /Line 1: clue before an Across or Down header/,
+      "Across\n1 Feline\nFeline again\n" => /Line 3: clue does not start with a number/,
+      "Across\n1 Feline\n1 Again\n" => /Line 3: duplicate clue 1/,
+    }.each do |text, msg|
+      e = assert_raises(PuzzleFormatError, text) { ClueList.read(text) }
+      assert_match msg, e.message
+    end
+  end
+
+  def test_clues_must_match_grid
+    clues = "Across\n1 Feline\n5 Extra\nDown\n1 Taxi\n"
+    e = assert_raises(PuzzleFormatError) { ClueList.read(clues).apply(make_xw) }
+    assert_match(/no across clue for 3/, e.message)
+    assert_match(/across clue 5 not in grid/, e.message)
+    assert_match(/no down clue for 2/, e.message)
+  end
+end

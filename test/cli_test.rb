@@ -98,6 +98,46 @@ class CLITest < PangridTest
     end
   end
 
+  def test_cli_clues
+    xw = make_xw(across: ["[CAT]", "[BEE]"], down: ["[CAB]", "[TOE]"])
+    with_input(Json.new.write(xw)) do |input, output|
+      clues = File.join(File.dirname(input), "clues.txt")
+      File.write(clues, ClueListTest::CLUES)
+      %w(-c --clues).each do |flag|
+        _, err, status = run_cli("-f", "json", "-t", "json", "-i", input, "-o", output, flag, clues)
+        assert_nil status, err
+        json = JSON.parse(File.read(output))
+        assert_equal ["Feline (3)", "Bee sound (3)"], json["across"]
+        assert_equal ["Taxi (3)", "Foot digit (3)"], json["down"]
+      end
+    end
+  end
+
+  def test_cli_writer_errors
+    xw = make_xw(across: ACROSS + ["extra"])
+    with_input(Json.new.write(xw)) do |input, output|
+      _, err, status = run_cli("-f", "json", "-t", "across-lite-binary", "-i", input, "-o", output)
+      assert_equal 1, status
+      assert_match(/^Could not convert .*: Extra across clue/, err)
+      refute File.exist?(output)
+    end
+  end
+
+  def test_cli_clue_errors
+    with_input(Json.new.write(make_xw)) do |input, output|
+      clues = File.join(File.dirname(input), "clues.txt")
+      File.write(clues, "Across\n1 Feline\n")
+      _, err, status = run_cli("-f", "json", "-t", "text", "-i", input, "-o", output, "-c", clues)
+      assert_equal 1, status
+      assert_match(/^Could not add clues from .*clues.txt: Clues do not match the grid/, err)
+      refute File.exist?(output)
+
+      _, err, status = run_cli("-f", "json", "-t", "text", "-i", input, "-o", output, "-c", clues + "x")
+      assert_equal 1, status
+      assert_match(/Cannot find file .*clues.txtx/, err)
+    end
+  end
+
   def test_cli_short_options
     with_input(Json.new.write(make_xw)) do |input, output|
       _, _, status = run_cli("-f", "json", "-t", "text", "-i", input, "-o", output)
