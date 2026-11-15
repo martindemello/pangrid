@@ -11,9 +11,10 @@
 #   1 Power to limit a settlement (8)
 #
 # Section headers are "Across" and "Down" (case insensitive, optionally
-# decorated, e.g. "**Across**" or "Across:"). Blank lines are ignored. Each
-# clue starts with its number, which is used to match it to the grid, so the
-# clues don't have to be in order.
+# decorated, e.g. "**Across**" or "Across:"). Blank lines, and comment lines
+# starting with a # (qxw adds a comment header to its answer files), are
+# ignored. Each clue starts with its number, which is used to match it to the
+# grid, so the clues don't have to be in order.
 
 module Pangrid
 
@@ -39,7 +40,7 @@ class ClueList
     section = nil
     data.each_line.with_index(1) do |line, lineno|
       line = line.strip
-      next if line.empty?
+      next if line.empty? || line.start_with?("#")
       if (m = line.match(HEADER))
         section = m[1].downcase == "across" ? across : down
         next
