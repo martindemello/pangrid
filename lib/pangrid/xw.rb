@@ -60,14 +60,7 @@ class Cell
     end
   end
 
-  def inspect
-    case solution
-    when :black; '#'
-    when :null; '.'
-    when Rebus; solution.inspect
-    else; solution
-    end
-  end
+  alias_method :inspect, :to_w
 end
 
 # solution = Cell[][]
@@ -200,9 +193,7 @@ class XWord
         case s
         when :black, :null
           opts[s]
-        when String
-          block_given? ? (yield c) : c.to_char
-        when Rebus
+        when String, Rebus
           block_given? ? (yield c) : c.to_char
         else
           raise PuzzleFormatError, "Unrecognised cell #{c}"
@@ -238,26 +229,10 @@ class XWord
 
   def inspect_grid
     number
-    solution.map {|row|
-      row.map {|c|
-        s = c.solution
-        o = case s
-        when :black
-          "#"
-        when :null
-          "."
-        when String
-          c.to_char
-        when Rebus
-          c.to_char
-        else
-          raise PuzzleFormatError, "Unrecognised cell #{c}"
-        end
-        if c.number && c.number > 0
-          o = "#{c.number} #{o}"
-        end
-        o = o.rjust(4)
-      }.join("|")
+    to_array(:black => '#', :null => '.') {|c|
+      c.number ? "#{c.number} #{c.to_char}" : c.to_char
+    }.map {|row|
+      row.map {|o| o.rjust(4)}.join("|")
     }.join("\n")
   end
 end

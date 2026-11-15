@@ -21,11 +21,11 @@ module Pangrid
         c = cell.black? ? black : white
         png.rect(
           x * scale, y * scale, (x + 1) * scale, (y + 1) * scale,
-          stroke_color = grey, fill_color = c)
+          grey, c)  # stroke, fill
       end
       if border
         stroke = ChunkyPNG::Color::rgb(*border)
-        png.rect(0, 0, xw.width * scale, xw.height * scale, stroke_color = stroke)
+        png.rect(0, 0, xw.width * scale, xw.height * scale, stroke)
       end
       png.to_blob  
     end

@@ -21,14 +21,6 @@ class Text < Plugin
     grid + "\n" + ac + "\n\n" + dn + "\n"
   end
 
-  # rename to 'read' when this is complete
-  def read_grid(data)
-    s = data.each_line.map(&:strip)
-    m = s[0].match(/^Grid (\d+) (\d+)$/)
-    check("Grid line missing") { m }
-    xw.height, xw.width = m[1].to_i, m[2].to_i
-  end
-
   def format_clues(numbers, clues, indent)
     numbers.zip(clues).map {|n, c| " "*indent + "#{n.to_s.rjust(2)}. #{c}"}.join("\n")
   end
