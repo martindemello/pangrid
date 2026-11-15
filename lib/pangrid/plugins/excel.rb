@@ -36,7 +36,7 @@ class ExcelXSLX < Plugin
     rows = xw.to_array(:black => " ", :null => " ") {|c|
       format_number(c.number) + " " +
       # We can insert the entire word for rebuses
-      c.solution
+      (c.rebus? ? c.solution.solution : c.solution)
     }
 
     styles = xw.to_array(:black => :black, :null => :white) {
