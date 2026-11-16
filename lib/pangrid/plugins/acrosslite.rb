@@ -230,15 +230,12 @@ class AcrossLiteBinary < Plugin
     across, down = xw.number
     clues = across.map {|x| [x, :a]} + down.map {|x| [x, :d]}
     clues.sort!
-    xw.across_clues = []
-    xw.down_clues = []
+    ac, dn = [], []
     clues.zip(xw.clues).each do |(n, dir), clue|
-      if dir == :a
-        xw.across_clues << clue
-      else
-        xw.down_clues << clue
-      end
+      (dir == :a ? ac : dn) << clue
     end
+    xw.across_clues = ac
+    xw.down_clues = dn
   end
 
   # combine across and down clues -> xw.clues
@@ -442,8 +439,8 @@ class AcrossLiteText < Plugin
       ['SIZE', ["#{xw.height}x#{xw.width}"]],
       ['GRID', write_grid],
       ['REBUS', write_rebus],
-      ['ACROSS', xw.across_clues],
-      ['DOWN', xw.down_clues],
+      ['ACROSS', xw.across_clues.map(&:to_s)],
+      ['DOWN', xw.down_clues.map(&:to_s)],
       ['NOTEPAD', xw.notes.to_s.split("\n")]
     ]
     out = ["<ACROSS PUZZLE V2>"]

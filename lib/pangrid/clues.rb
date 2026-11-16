@@ -50,7 +50,7 @@ class ClueList
       check("Line #{lineno}: clue does not start with a number: #{line}") { n }
       n = n.to_i
       check("Line #{lineno}: duplicate clue #{n}") { !section.key?(n) }
-      section[n] = strip_clue_numbers([line], [n]).first
+      section[n] = Clue.parse(strip_clue_numbers([line], [n]).first, number: n)
     end
     check("No clues found") { !across.empty? || !down.empty? }
     self

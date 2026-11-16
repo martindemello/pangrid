@@ -20,8 +20,8 @@ class CSVPluginTest < PangridTest
     assert_equal 3, xw.width
     assert_equal 3, xw.height
     assert_equal %w(CAT A#O BE.), grid_strings(xw)
-    assert_equal ACROSS, xw.across_clues
-    assert_equal DOWN, xw.down_clues
+    assert_equal ACROSS, xw.across_clues.map(&:to_s)
+    assert_equal DOWN, xw.down_clues.map(&:to_s)
   end
 
   def test_strips_non_letters_from_cells

@@ -17,8 +17,8 @@ class QxwTest < PangridTest
     xw = Qxw.new.read(qxw_for(GRID))
     assert_equal 3, xw.width
     assert_equal %w(CAT A#O BEE), grid_strings(xw)
-    assert_equal ["[CAT]", "[BEE]"], xw.across_clues
-    assert_equal ["[CAB]", "[TOE]"], xw.down_clues
+    assert_equal ["[CAT]", "[BEE]"], xw.across_clues.map(&:to_s)
+    assert_equal ["[CAB]", "[TOE]"], xw.down_clues.map(&:to_s)
   end
 
   def test_read_empty_cells
@@ -39,8 +39,8 @@ class QxwTest < PangridTest
     assert_equal [:bottom], xw.solution[0][2].borders
     assert_equal [:top], xw.solution[1][2].borders
     assert_equal [], xw.solution[1][1].borders
-    assert_equal ["[BC]", "[DEF]", "[GHI]"], xw.across_clues
-    assert_equal ["[ADG]", "[BEH]", "[FI]"], xw.down_clues
+    assert_equal ["[BC]", "[DEF]", "[GHI]"], xw.across_clues.map(&:to_s)
+    assert_equal ["[ADG]", "[BEH]", "[FI]"], xw.down_clues.map(&:to_s)
   end
 
   def test_ignores_bars_on_grid_edge_and_blocks
@@ -54,10 +54,10 @@ class QxwTest < PangridTest
     assert_equal [8, 10], [xw.width, xw.height]
     assert_equal %w(PILASTER UNITE ONES TIRESOME ENSNARE CYANIDE
                     BEARSKIN ORCS TEETH RETIREES).map {|w| "[#{w}]"},
-                 xw.across_clues
+                 xw.across_clues.map(&:to_s)
     assert_equal %w(PUTTER INSINCERE LIAR ATHENA TENOR ROSE REMEDIATE
                     ANSWER TENTHS YACHT BOAR KNEE).map {|w| "[#{w}]"},
-                 xw.down_clues
+                 xw.down_clues.map(&:to_s)
   end
 
   def test_errors

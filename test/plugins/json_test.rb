@@ -14,8 +14,8 @@ class JsonPluginTest < PangridTest
   def test_roundtrip
     xw = Json.new.read(Json.new.write(make_xw(grid: %w(CA# .BE))))
     assert_equal %w(CA# .BE), grid_strings(xw)
-    assert_equal ACROSS, xw.across_clues
-    assert_equal DOWN, xw.down_clues
+    assert_equal ACROSS, xw.across_clues.map(&:to_s)
+    assert_equal DOWN, xw.down_clues.map(&:to_s)
   end
 
   def test_read_multi_letter_cell_is_rebus

@@ -1,3 +1,5 @@
+require_relative 'clue'
+
 module Pangrid
 
 class PuzzleFormatError < StandardError
@@ -70,12 +72,16 @@ end
 
 # solution = Cell[][]
 # width, height = int
-# across_clues = string[]
-# down_clues = string[]
+# across_clues = Clue[], one per across light, in numbering order
+# down_clues = Clue[]
+# nodir_clues = Clue[], clues without a direction (exolve nodir, ipuz
+#               "Clues"), typically with a label and a list of cells
 # rebus = { solution => [int, rebus_char] }
+#
+# The clue lists also accept strings, which are converted to Clues.
 class XWord
   # Metadata shared by all formats
-  COMMON = %i(width height solution across_clues down_clues
+  COMMON = %i(width height solution across_clues down_clues nodir_clues
               title author copyright notes preamble rebus)
 
   # AcrossLite binary format fields
@@ -94,16 +100,19 @@ class XWord
   def initialize(**args)
     @across_clues = []
     @down_clues = []
+    @nodir_clues = []
     args.each {|k, v| self[k] = v}
   end
 
-  # Writers can rely on the clue lists being arrays
-  def across_clues=(clues)
-    @across_clues = clues || []
+  # Writers can rely on the clue lists being arrays of Clues
+  %i(across_clues down_clues nodir_clues).each do |list|
+    define_method(:"#{list}=") do |clues|
+      instance_variable_set(:"@#{list}", (clues || []).map {|c| Clue.coerce(c)})
+    end
   end
 
-  def down_clues=(clues)
-    @down_clues = clues || []
+  def all_clues
+    (across_clues + down_clues + nodir_clues).compact
   end
 
   def [](k)
@@ -117,19 +126,31 @@ class XWord
   end
 
   def to_h
-    ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact
+    ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact.reject {|k, v|
+      k == :nodir_clues && v.empty?
+    }
   end
 
   # Grid features that not every format can represent. Plugins list the ones
   # they support in Plugin::FEATURES.
   FEATURES = {
-    bars: "bars between squares"
+    bars: "bars between squares",
+    explanations: "clue explanations",
+    hints: "clue hints",
+    linked_clues: "linked clues",
+    nodir_clues: "clues without a direction"
   }
 
   # The features this crossword uses
   def features
+    cells = solution ? solution.flatten.compact : []
+    clues = all_clues
     used = []
-    used << :bars if solution && solution.flatten.any? {|c| c && !c.borders.empty?}
+    used << :bars if cells.any? {|c| !c.borders.empty?}
+    used << :explanations if clues.any?(&:explanation)
+    used << :hints if clues.any? {|c| !c.hints.empty?}
+    used << :linked_clues if clues.any? {|c| !c.linked.empty? || c.parent}
+    used << :nodir_clues if !nodir_clues.empty?
     used
   end
 
