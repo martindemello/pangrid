@@ -269,6 +269,32 @@ class ExolveTest < PangridTest
     assert_equal "Line 1\nLine 2", w.read(out).preamble
   end
 
+  def test_metadata
+    xw = make_xw(id: "xw-1", credits: ["Tester: A", "Editor: B"], email: "a@example.com",
+                 language: "hi Devanagari", origin: "pangrid",
+                 explanation: "Ninas everywhere", postscript: "PS 1\nPS 2")
+    w = ExolveFilled.new
+    out = w.write(xw)
+    assert_includes out, "  exolve-id: xw-1\n"
+    assert_includes out, "  exolve-credits: Tester: A\n  exolve-credits: Editor: B\n"
+    assert_includes out, "  exolve-email: a@example.com\n"
+    assert_includes out, "  exolve-language: hi Devanagari\n"
+    assert_includes out, "  exolve-maker: pangrid\n"
+    assert_includes out, "  exolve-explanations:\n    Ninas everywhere\n"
+    assert_includes out, "  exolve-postscript:\n    PS 1\n    PS 2\n"
+    read = w.read(out)
+    %i(id credits email language origin explanation postscript).each do |f|
+      assert_equal xw[f], read[f], f
+    end
+  end
+
+  def test_placeholder_id_is_not_read
+    w = ExolveFilled.new
+    out = w.write(make_xw)
+    assert_includes out, "exolve-id: replace-with-unique-id"
+    assert_nil w.read(out).id
+  end
+
   def test_read_errors
     assert_raises(PuzzleFormatError) { ExolveFilled.new.read("exolve-end\n") }
     assert_raises(PuzzleFormatError) { ExolveFilled.new.read("exolve-begin\n") }

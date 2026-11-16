@@ -16,6 +16,9 @@ module Pangrid
 # with "[]". Clues without a direction (exolve-nodir) start with the cells
 # they occupy and a label: "#c3 #c5 [A] Clue (2)".
 module ExolveClues
+  # Written when the puzzle has no id; exolve needs one to save progress
+  PLACEHOLDER_ID = 'replace-with-unique-id'
+
   DIRECTION_SUFFIX = {"a" => :across, "d" => :down}
   REF = /\d+[adbu]?/
   LEAD = /\A(#{REF}(?:\s*[,&]\s*#{REF})*)\.?(?:\s+|\z)/
@@ -128,15 +131,17 @@ module ExolveWriter
     unless xw.nodir_clues.empty?
       body += section("nodir", xw.nodir_clues.flat_map {|c| format_clue(xw, nil, c, nil)})
     end
+    body += header("explanations", xw.explanation, multiline: true) if xw.explanation
+    body += header("postscript", xw.postscript, multiline: true) if xw.postscript
     out = ["exolve-begin"] + indent(body) + ["exolve-end"]
     out.join("\n")
   end
 
   # Single line headers are written inline, multi-line ones on the following
   # lines
-  def header(key, value)
+  def header(key, value, multiline: false)
     lines = value.to_s.split("\n")
-    if lines.length > 1
+    if lines.length > 1 || multiline
       section(key, lines)
     else
       ["exolve-#{key}: #{value}"]
@@ -149,15 +154,19 @@ module ExolveWriter
 
   def format_headers(xw)
     headers = [
-      'id', 'replace-with-unique-id',
-      'title', xw.title,
-      'setter', xw.author,
-      'width', xw.width,
-      'height', xw.height,
-      'copyright', xw.copyright,
-      'prelude', xw.preamble
+      ['id', xw.id || PLACEHOLDER_ID],
+      ['title', xw.title],
+      ['setter', xw.author],
+      ['width', xw.width],
+      ['height', xw.height],
+      ['copyright', xw.copyright],
+      *(xw.credits || []).map {|c| ['credits', c]},
+      ['email', xw.email],
+      ['language', xw.language],
+      ['maker', xw.origin],
+      ['prelude', xw.preamble]
     ]
-    headers.each_slice(2).select {|k, v| v}.flat_map {|k, v| header(k, v)}
+    headers.select {|k, v| v}.flat_map {|k, v| header(k, v)}
   end
 
   def format_clues(xw, numbers, clues, dir)
@@ -201,8 +210,15 @@ module ExolveReader
     clues = {}
     sections(lines).each do |field, value, body|
       text = value.empty? ? body.map(&:strip).join("\n") : value
-      if %w(title copyright).include? field
+      next if field == "id" && text == PLACEHOLDER_ID
+      if %w(id title copyright email language postscript).include? field
         xw[field] = text
+      elsif field == "explanations"
+        xw.explanation = text
+      elsif field == "credits"
+        (xw.credits ||= []) << text
+      elsif field == "maker"
+        xw.origin = text
       elsif %w(prelude preamble).include? field
         xw.preamble = text
       elsif field == "setter"

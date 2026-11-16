@@ -79,10 +79,30 @@ end
 # rebus = { solution => [int, rebus_char] }
 #
 # The clue lists also accept strings, which are converted to Clues.
+#
+# Metadata (all strings unless noted):
+#   title, author, editor, copyright, publisher, publication, url
+#   date: as given in the source file (ipuz uses mm/dd/yyyy)
+#   difficulty
+#   id: a unique id for the puzzle (ipuz uniqueid, exolve-id)
+#   preamble: instructions shown before solving (ipuz intro, exolve-prelude)
+#   notes: notes shown alongside the puzzle (AcrossLite notepad, ipuz notes)
+#   explanation: shown after solving (ipuz explanation, exolve-explanations)
+#   postscript: text shown below the puzzle (exolve-postscript)
+#   annotation: never shown to the solver (ipuz annotation)
+#   credits: string[] (exolve-credits)
+#   email: contact address(es) for the setter (exolve-email)
+#   origin: the program that made the file (ipuz origin, exolve-maker)
+#   language: language and script, e.g. "hi Devanagari" (exolve-language)
+#   charset: the characters that can be entered (ipuz charset)
 class XWord
-  # Metadata shared by all formats
+  METADATA = %i(title author editor copyright publisher publication url date
+                difficulty id preamble notes explanation postscript
+                annotation credits email origin language charset)
+
+  # Fields shared by all formats
   COMMON = %i(width height solution across_clues down_clues nodir_clues
-              title author copyright notes preamble rebus)
+              rebus) + METADATA
 
   # AcrossLite binary format fields
   #   clues: across and down clues interleaved in numerical order

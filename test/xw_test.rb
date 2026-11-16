@@ -12,6 +12,14 @@ class XWordTest < PangridTest
                  xw.to_h)
   end
 
+  def test_metadata_attributes
+    XWord::METADATA.each do |f|
+      xw = XWord.new(f => "x")
+      assert_equal "x", xw[f]
+      assert_equal "x", xw.to_h[f]
+    end
+  end
+
   def test_clues_default_to_empty
     assert_equal [], XWord.new.across_clues
     assert_equal [], XWord.new.down_clues
