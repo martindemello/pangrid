@@ -27,14 +27,25 @@ class Rebus
   end
 end
 
-# solution = :black | :null | char | Rebus
-# number = int
+# solution = :black | :null | :void | char | Rebus
+#   :null is an empty light (a square whose letter isn't known); :void is a
+#   square that is not part of the grid at all (ipuz null, qxw cutouts)
+# number = int, filled in by XWord#number
 # borders = [:left, :right, :top, :bottom]
+# circle, highlight, given, diagramless = bool
+#   given: the letter is shown to the solver (exolve "!", ipuz "value")
+# color = string, as given in the source file (e.g. "FF0000", "palegreen")
+# label = string shown instead of the clue number; labelled squares don't
+#         use up a number, and "" means no number at all (exolve "~")
+# marks = { "TL" | "T" | "TR" | "L" | "C" | "R" | "BL" | "B" | "BR" => text }
+#         small text in the corners or sides of the square (ipuz mark)
 class Cell
-  attr_accessor :solution, :number, :borders
+  attr_accessor :solution, :number, :borders, :circle, :color, :highlight,
+                :given, :diagramless, :label, :marks
 
   def initialize(**args)
     @borders = []
+    @marks = {}
     args.each {|k,v| self.send :"#{k}=", v}
   end
 
@@ -42,8 +53,21 @@ class Cell
     @borders = b || []
   end
 
+  def marks=(m)
+    @marks = m || {}
+  end
+
   def black?
     solution == :black
+  end
+
+  def void?
+    solution == :void
+  end
+
+  # Part of a word: not a block or a void square
+  def light?
+    !black? && !void?
   end
 
   def has_bar?(s)
@@ -62,6 +86,7 @@ class Cell
     case solution
     when :black; '#'
     when :null; '.'
+    when :void; '_'
     when Rebus; solution.inspect
     else; solution
     end
@@ -69,6 +94,10 @@ class Cell
 
   alias_method :inspect, :to_w
 end
+
+# A light (an across or down word): number is the clue number, or the
+# square's label if it has one
+Light = Struct.new(:number, :direction, :x, :y)
 
 # solution = Cell[][]
 # width, height = int
@@ -155,6 +184,14 @@ class XWord
   # they support in Plugin::FEATURES.
   FEATURES = {
     bars: "bars between squares",
+    circles: "circled squares",
+    colors: "coloured squares",
+    highlights: "highlighted squares",
+    given: "letters given in the grid",
+    diagramless: "diagramless squares",
+    labels: "non-standard clue numbers",
+    marks: "text in the corners of squares",
+    void: "squares outside the grid",
     explanations: "clue explanations",
     hints: "clue hints",
     linked_clues: "linked clues",
@@ -167,6 +204,14 @@ class XWord
     clues = all_clues
     used = []
     used << :bars if cells.any? {|c| !c.borders.empty?}
+    used << :circles if cells.any?(&:circle)
+    used << :colors if cells.any?(&:color)
+    used << :highlights if cells.any?(&:highlight)
+    used << :given if cells.any?(&:given)
+    used << :diagramless if cells.any?(&:diagramless)
+    used << :labels if cells.any?(&:label)
+    used << :marks if cells.any? {|c| !c.marks.empty?}
+    used << :void if cells.any?(&:void?)
     used << :explanations if clues.any?(&:explanation)
     used << :hints if clues.any? {|c| !c.hints.empty?}
     used << :linked_clues if clues.any? {|c| !c.linked.empty? || c.parent}
@@ -180,7 +225,7 @@ class XWord
   end
 
   def boundary?(x, y)
-    (x < 0) || (y < 0) || (x >= width) || (y >= height) || black?(x, y)
+    (x < 0) || (y < 0) || (x >= width) || (y >= height) || !solution[y][x].light?
   end
 
   OPPOSITE = {left: :right, right: :left, top: :bottom, bottom: :top}
@@ -215,11 +260,11 @@ class XWord
       !boundary?(x, y) && !word_end?(x, y, :down)
   end
 
-  # Word starting from a square
-  def word_from(x, y, dir)
-    s = ""
+  # [x, y] of the squares in the word starting from a square
+  def light_cells(x, y, dir)
+    cells = []
     while !boundary?(x, y) do
-      s += solution[y][x].to_w
+      cells << [x, y]
       break if word_end?(x, y, dir)
       if dir == :across
         x += 1
@@ -227,30 +272,56 @@ class XWord
         y += 1
       end
     end
-    s
+    cells
   end
 
+  # Word starting from a square
+  def word_from(x, y, dir)
+    light_cells(x, y, dir).map {|cx, cy| solution[cy][cx].to_w}.join
+  end
+
+  # Number the grid. Returns the across and down clue numbers in order (and,
+  # if words is true, the words in the grid). Squares with a label don't use
+  # up a number, and their label takes the place of the number.
   def number(words = false)
     n, across, down = 1, [], []
     words_a, words_d = [], []
+    @lights = []
     each_cell {|c| c.number = nil}
     (0 ... height).each do |y|
       (0 ... width).each do |x|
-        if across? x, y
-          across << n
+        a, d = across?(x, y), down?(x, y)
+        next unless a || d
+        cell = solution[y][x]
+        id = cell.label || n
+        if a
+          across << id
           words_a << word_from(x, y, :across)
+          @lights << Light.new(id, :across, x, y)
         end
-        if down? x, y
-          down << n
+        if d
+          down << id
           words_d << word_from(x, y, :down)
+          @lights << Light.new(id, :down, x, y)
         end
-        if across.last == n || down.last == n
-          solution[y][x].number = n
+        unless cell.label
+          cell.number = n
           n += 1
         end
       end
     end
     words ? [across, down, words_a, words_d] : [across, down]
+  end
+
+  # All the lights in grid order, across before down for each square
+  def lights
+    number
+    @lights
+  end
+
+  # The light with the given number (or label) and direction
+  def light(number, dir)
+    lights.find {|l| l.number == number && l.direction == dir}
   end
 
   def each_cell
@@ -270,13 +341,16 @@ class XWord
   end
 
   # {:black => char, :null => char} -> Any[][]
+  #
+  # Void squares are shown as black ones unless opts[:void] is given.
   def to_array(opts = {})
     opts = {:black => '#', :null => ' '}.merge(opts)
+    opts[:void] = opts[:black] unless opts.key?(:void)
     solution.map {|row|
       row.map {|c|
         s = c.solution
         case s
-        when :black, :null
+        when :black, :null, :void
           opts[s]
         when String, Rebus
           block_given? ? (yield c) : c.to_char

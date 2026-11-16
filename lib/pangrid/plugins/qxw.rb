@@ -7,12 +7,12 @@ QXW_GRID_ERROR = "Could not read grid from .qxw file"
 class Qxw < Plugin
 
   DESCRIPTION = "QXW grid reader (rectangular grids only)"
-  FEATURES = [:bars]
+  FEATURES = [:bars, :void]
 
   # Square lines have the format
   #   SQ <x> <y> <bars> <merge> <flags> <char>
   # bars: bit 0 = bar on the right edge, bit 1 = bar on the bottom edge
-  # flags: bit 0 = block
+  # flags: bit 0 = block, bit 3 = cutout (not part of the grid)
   def read_squares(lines)
     lines.select {|x| x =~ /^SQ /}.map do |line|
       parts = line.scan(/\w+/)
@@ -24,9 +24,10 @@ class Qxw < Plugin
 
   def read_black(xw, squares)
     squares.each do |col, row, _, flags|
-      next if flags & 1 == 0
+      solution = flags & 8 != 0 ? :void : flags & 1 != 0 ? :black : nil
+      next unless solution
       xw.solution[row] ||= []
-      xw.solution[row][col] = Cell.new(solution: :black)
+      xw.solution[row][col] = Cell.new(solution: solution)
     end
   end
 

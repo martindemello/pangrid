@@ -25,10 +25,8 @@ class PluginTest < PangridTest
 
   def test_list_all_shows_features
     out, _ = capture_io { Plugin.list_all }
-    assert_match(/^ +bars  explanations/, out)
-    assert_match(/^  exolve-filled +\+     \+/, out)
-    assert_match(/^  text +-     -/, out)
-    assert_match(/bars: bars between squares/, out)
+    assert_match(/^  bars +bars between squares\n +.*exolve-filled.*\n/, out)
+    refute_match(/^  bars +bars between squares\n +.*text.*\n/, out)
   end
 
   def test_features

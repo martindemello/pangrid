@@ -12,6 +12,11 @@ class PNGThumbnailTest < PangridTest
     assert_equal ChunkyPNG::Color.rgb(128, 0, 0), img[0, 0]
   end
 
+  def test_void_squares_are_drawn_black
+    img = ChunkyPNG::Image.from_blob(PNGThumbnail.new.write(make_xw(grid: %w(_A BC))))
+    assert_equal ChunkyPNG::Color::BLACK, img[2, 2]
+  end
+
   def test_custom_scale_and_no_border
     img = ChunkyPNG::Image.from_blob(PNGThumbnail.new(10, nil).write(make_xw))
     assert_equal [32, 32], [img.width, img.height]

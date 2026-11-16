@@ -109,6 +109,49 @@ class XWordTest < PangridTest
     assert_equal [], xw.number[0]
   end
 
+  def test_void_squares_are_boundaries
+    xw = make_xw(grid: %w(_AB CDE))
+    assert xw.boundary?(0, 0)
+    refute xw.solution[0][0].light?
+    assert_equal [[1, 3], [1, 2]], xw.number
+    assert_equal %w(_AB CDE), grid_strings(xw)
+    assert_equal [['#', 'A', 'B'], ['C', 'D', 'E']], xw.to_array
+    assert_equal [[' ', 'A', 'B'], ['C', 'D', 'E']], xw.to_array(void: ' ')
+  end
+
+  def test_labels_do_not_use_up_numbers
+    xw = make_xw
+    xw.solution[0][2].label = "X"
+    across, down = xw.number
+    assert_equal [1, 2], across
+    assert_equal [1, "X"], down
+    assert_nil xw.solution[0][2].number
+    assert_equal 2, xw.solution[2][0].number
+    xw.solution[0][0].label = ""
+    assert_equal [["", 1], ["", "X"]], xw.number
+  end
+
+  def test_lights
+    xw = make_xw
+    assert_equal [Light.new(1, :across, 0, 0), Light.new(1, :down, 0, 0),
+                  Light.new(2, :down, 2, 0), Light.new(3, :across, 0, 2)],
+                 xw.lights
+    assert_equal Light.new(2, :down, 2, 0), xw.light(2, :down)
+    assert_nil xw.light(2, :across)
+    assert_equal [[2, 0], [2, 1], [2, 2]], xw.light_cells(2, 0, :down)
+  end
+
+  def test_cell_features
+    {circle: true, color: "red", highlight: true, given: true,
+     diagramless: true, label: "A", marks: {"TL" => "1"}}.each do |field, value|
+      xw = make_xw
+      xw.solution[0][0].send(:"#{field}=", value)
+      assert_equal 1, xw.features.length, field
+      assert_includes XWord::FEATURES, xw.features[0]
+    end
+    assert_equal [:void], make_xw(grid: %w(_A BC)).features
+  end
+
   def test_boundary
     xw = make_xw
     assert xw.boundary?(-1, 0)
@@ -195,6 +238,15 @@ class CellTest < PangridTest
     assert_equal [], Cell.new(solution: "A").borders
     assert_equal [], Cell.new(solution: "A", borders: nil).borders
     refute Cell.new(solution: "A").has_bar?(:left)
+  end
+
+  def test_cell_defaults
+    c = Cell.new(solution: "A", marks: nil)
+    assert_equal({}, c.marks)
+    assert c.light?
+    refute c.void?
+    assert Cell.new(solution: :void).void?
+    assert_equal "_", Cell.new(solution: :void).to_w
   end
 
   def test_to_char

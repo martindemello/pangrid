@@ -32,6 +32,7 @@ module PangridTestHelpers
     case c
     when '#' then Cell.new(solution: :black)
     when '.' then Cell.new(solution: :null)
+    when '_' then Cell.new(solution: :void)
     else Cell.new(solution: c)
     end
   end

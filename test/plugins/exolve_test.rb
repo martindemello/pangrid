@@ -295,6 +295,70 @@ class ExolveTest < PangridTest
     assert_nil w.read(out).id
   end
 
+  def test_cell_decorators
+    xw = make_xw
+    xw.solution[0][0].circle = true
+    xw.solution[0][1].diagramless = true
+    xw.solution[0][2].given = true
+    xw.solution[2][0].borders = [:right]
+    xw.solution[2][1].borders = [:left]
+    w = ExolveFilled.new
+    out = w.write(xw)
+    assert_includes out, "  exolve-grid:\n    C@A*T!\n    A . O\n    B|E E\n"
+    read = w.read(out)
+    assert read.solution[0][0].circle
+    assert read.solution[0][1].diagramless
+    assert read.solution[0][2].given
+    assert_equal %w(CAT A#O BEE), grid_strings(read)
+    assert_equal out, w.write(read)
+  end
+
+  def test_blank_grid_shows_given_letters
+    xw = make_xw
+    xw.solution[0][2].given = true
+    assert_includes ExolveBlank.new.write(xw), "  exolve-grid:\n    0 0 T!\n"
+  end
+
+  def test_labelled_squares
+    xw = make_xw
+    xw.solution[0][2].label = "X"
+    xw.solution[2][0].label = ""
+    w = ExolveFilled.new
+    out = w.write(xw)
+    assert_includes out, "  exolve-grid:\n    C A T~\n    A . O\n    B~E E\n"
+    assert_includes out, "  exolve-across:\n     1 Feline\n    #c1r1 Bee sound\n"
+    assert_includes out, "  exolve-down:\n     1 Taxi\n    #c3r3 [X] Foot digit\n"
+    read = w.read(out)
+    assert_equal "X", read.solution[0][2].label
+    assert_equal "", read.solution[2][0].label
+    assert_equal ["Feline", "Bee sound"], read.across_clues.map(&:to_s)
+    assert_equal ["Taxi", "Foot digit"], read.down_clues.map(&:to_s)
+    assert_equal [], read.down_clues[1].cells
+    assert_nil read.down_clues[1].label
+    assert_equal out, w.write(read)
+  end
+
+  def test_colours
+    xw = make_xw
+    xw.solution[0][0].color = "palegreen"
+    xw.solution[2][2].color = "palegreen"
+    xw.solution[1][2].color = "#ff0000"
+    w = ExolveFilled.new
+    out = w.write(xw)
+    assert_includes out, "  exolve-colour: palegreen c1r3 c3r1\n"
+    assert_includes out, "  exolve-colour: #ff0000 c3r2\n"
+    read = w.read(out)
+    assert_equal "palegreen", read.solution[2][2].color
+    assert_equal "#ff0000", read.solution[1][2].color
+    assert_nil read.solution[0][1].color
+  end
+
+  def test_read_colour_by_clue
+    xw = read_exolve("exolve-color: a3 blue A3 2D x9\n", grid: %w(CAT A.O BEE))
+    colours = xw.solution.map {|row| row.map {|c| c.color ? "b" : "-"}.join}
+    assert_equal %w(b-b --b bbb), colours
+  end
+
   def test_read_errors
     assert_raises(PuzzleFormatError) { ExolveFilled.new.read("exolve-end\n") }
     assert_raises(PuzzleFormatError) { ExolveFilled.new.read("exolve-begin\n") }

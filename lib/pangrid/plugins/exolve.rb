@@ -93,16 +93,25 @@ module ExolveClues
     clues
   end
 
-  # Clue -> String[]
-  def format_clue(xw, n, clue, dir)
+  # Light, Clue -> String[]
+  #
+  # Lights whose square has a label (and so no number) are placed by giving
+  # the square's location instead: "#c1r3 [B] Clue"
+  def format_clue(xw, light, clue)
     clue ||= Clue.new
     return [] if clue.parent && clue.text.to_s.empty?
-    lead = clue.cells.map {|c| "#" + format_cell(xw, c)}
+    n, label, cells = light && light.number, clue.label, clue.cells
+    if n.is_a?(String)
+      cells = [[light.x, light.y]]
+      label = n unless n.empty?
+      n = nil
+    end
+    lead = cells.map {|c| "#" + format_cell(xw, c)}
     lead << ([n] + clue.linked).compact.map(&:to_s).join(", ") if n
     lead = lead.join(" ")
-    lead = lead.rjust(2) if n && clue.cells.empty?
-    s = [lead]
-    s << "[#{clue.label}]" if clue.label
+    lead = lead.rjust(2) if n && cells.empty?
+    s = lead.empty? ? [] : [lead]
+    s << "[#{label}]" if label
     s << clue.text if clue.text && !clue.text.empty?
     s << "(#{clue.enumeration})" if clue.enumeration
     if clue.explanation
@@ -120,17 +129,17 @@ module ExolveWriter
 
   def write(xw)
     headers = format_headers(xw)
-    across, down = xw.number
     grid = format_grid(xw)
-    ac = format_clues(xw, across, xw.across_clues, :across)
-    dn = format_clues(xw, down, xw.down_clues, :down)
+    ac = format_clues(xw, xw.across_clues, :across)
+    dn = format_clues(xw, xw.down_clues, :down)
     body = headers +
       section("grid", grid) +
       section("across", ac) +
       section("down", dn)
     unless xw.nodir_clues.empty?
-      body += section("nodir", xw.nodir_clues.flat_map {|c| format_clue(xw, nil, c, nil)})
+      body += section("nodir", xw.nodir_clues.flat_map {|c| format_clue(xw, nil, c)})
     end
+    body += format_colours(xw)
     body += header("explanations", xw.explanation, multiline: true) if xw.explanation
     body += header("postscript", xw.postscript, multiline: true) if xw.postscript
     out = ["exolve-begin"] + indent(body) + ["exolve-end"]
@@ -169,30 +178,46 @@ module ExolveWriter
     headers.select {|k, v| v}.flat_map {|k, v| header(k, v)}
   end
 
-  def format_clues(xw, numbers, clues, dir)
-    numbers.each_with_index.flat_map {|n, i| format_clue(xw, n, clues[i], dir)}
+  def format_clues(xw, clues, dir)
+    lights = xw.lights.select {|l| l.direction == dir}
+    lights.each_with_index.flat_map {|l, i| format_clue(xw, l, clues[i])}
+  end
+
+  # One exolve-colour line per colour
+  def format_colours(xw)
+    cells = Hash.new {|h, k| h[k] = []}
+    xw.each_cell_with_coords {|x, y, c| cells[c.color] << [x, y] if c.color}
+    cells.map do |colour, cs|
+      "exolve-colour: #{colour} " + cs.map {|c| format_cell(xw, c)}.join(" ")
+    end
   end
 
   def indent(lines)
     lines.map {|x| "  " + x}
   end
 
-  # Exolve marks bars with decorators after a square: | for a bar on the
-  # right, _ for a bar underneath and + for both. If the grid has any bars,
-  # squares are separated by spaces so that the columns line up.
+  # Exolve marks squares with decorators after the letter:
+  #   | bar on the right, _ bar underneath, + both
+  #   @ circle, * diagramless, ! letter given, ~ no clue number
+  # If any square has decorators, squares are padded so the columns line up.
   def format_grid(xw)
     rows = xw.to_array(:black => '.', :null => '0') {|c| grid_char(c)}
-    decorators = rows.each_index.map do |y|
-      rows[y].each_index.map do |x|
-        right, bottom = xw.bar?(x, y, :right), xw.bar?(x, y, :bottom)
-        right && bottom ? '+' : right ? '|' : bottom ? '_' : ' '
-      end
+    tokens = rows.each_with_index.map do |row, y|
+      row.each_with_index.map {|ch, x| ch.to_s + decorators(xw, x, y)}
     end
-    if decorators.flatten.all? {|d| d == ' '}
-      rows.map(&:join)
-    else
-      rows.zip(decorators).map {|r, d| r.zip(d).join.rstrip}
-    end
+    width = tokens.flatten.map(&:length).max
+    tokens.map {|row| row.map {|t| t.ljust(width)}.join.rstrip}
+  end
+
+  def decorators(xw, x, y)
+    cell = xw.solution[y][x]
+    right, bottom = xw.bar?(x, y, :right), xw.bar?(x, y, :bottom)
+    d = right && bottom ? '+' : right ? '|' : bottom ? '_' : ''
+    d += '@' if cell.circle
+    d += '*' if cell.diagramless
+    d += '!' if cell.given
+    d += '~' if cell.label
+    d
   end
 end
 
@@ -208,6 +233,7 @@ module ExolveReader
     lines = s[(first + 1)...last]
     xw = XWord.new
     clues = {}
+    colours = []
     sections(lines).each do |field, value, body|
       text = value.empty? ? body.map(&:strip).join("\n") : value
       next if field == "id" && text == PLACEHOLDER_ID
@@ -227,6 +253,8 @@ module ExolveReader
         xw[field] = text.to_i
       elsif %w(across down nodir).include? field
         clues[field] = body
+      elsif %w(colour color).include? field
+        colours << text
       elsif field == "grid"
         xw.solution = parse_grid(body)
       end
@@ -240,7 +268,32 @@ module ExolveReader
         xw.solution.all? {|row| row.length == xw.width}
     }
     read_clues(xw, clues)
+    colours.each do |line|
+      colour, cells = parse_cell_list(xw, line)
+      cells.each {|x, y| xw.solution[y][x].color = colour} if colour
+    end
     xw
+  end
+
+  # "palegreen a1 c2r3 A12 16D" -> ["palegreen", [[x, y], ...]], where A12
+  # and 16D are all the squares of 12 across and 16 down. The colour (or
+  # other non-location word) can be anywhere in the list.
+  def parse_cell_list(xw, line)
+    other = nil
+    cells = line.split.flat_map do |word|
+      if (cell = parse_cell(xw.height, word))
+        x, y = cell
+        (0...xw.width).cover?(x) && (0...xw.height).cover?(y) ? [cell] : []
+      elsif (m = word.match(/\A(?:([AD])(\d+)|(\d+)([adAD]))\z/))
+        dir = (m[1] || m[4]).downcase == "a" ? :across : :down
+        light = xw.light((m[2] || m[3]).to_i, dir)
+        light ? xw.light_cells(light.x, light.y, dir) : []
+      else
+        other = word
+        []
+      end
+    end
+    [other, cells]
   end
 
   # Lines -> [field, inline value, following lines][]
@@ -261,10 +314,9 @@ module ExolveReader
     across = parse_clues(sections["across"] || [], h)
     down = parse_clues(sections["down"] || [], h)
     xw.nodir_clues = parse_clues(sections["nodir"] || [], h)
-    a, d = xw.number
     children = linked_children(across, :across).merge(linked_children(down, :down))
-    xw.across_clues = align_clues(across, a, :across, children)
-    xw.down_clues = align_clues(down, d, :down, children)
+    xw.across_clues = align_clues(xw, across, :across, children)
+    xw.down_clues = align_clues(xw, down, :down, children)
   end
 
   # {[number, direction] => ClueRef to the first part} for the later parts
@@ -277,15 +329,34 @@ module ExolveReader
     end
   end
 
-  # Match clues to the grid by number, filling in the later parts of linked
-  # clues, which exolve does not require to be listed. If the clue numbers
-  # don't match the grid, keep the clues in the order given.
-  def align_clues(clues, numbers, dir, children)
-    by_number = clues.select(&:number).to_h {|c| [c.number, c]}
-    return clues if clues.empty? || by_number.length < clues.length ||
-                    !(by_number.keys - numbers).empty?
-    numbers.map do |n|
-      by_number[n] || Clue.new(number: n, parent: children[[n, dir]])
+  # Match clues to the grid, by number or by the location of their first
+  # square ("#c1r3 [B] Clue", used for squares marked ~ with no number), and
+  # fill in the later parts of linked clues, which exolve does not require to
+  # be listed. If a clue can't be placed, keep the clues in the order given.
+  def align_clues(xw, clues, dir, children)
+    return clues if clues.empty?
+    lights = xw.lights.select {|l| l.direction == dir}
+    placed = {}
+    clues.each do |c|
+      light =
+        if c.cells.length == 1
+          lights.find {|l| [l.x, l.y] == c.cells[0]}
+        elsif c.number
+          lights.find {|l| l.number == c.number}
+        end
+      return clues if light.nil? || placed[light]
+      placed[light] = c
+    end
+    lights.map do |l|
+      c = placed[l] || Clue.new(number: l.number, parent: children[[l.number, dir]])
+      cell = xw.solution[l.y][l.x]
+      if c.cells == [[l.x, l.y]]
+        # the location just places the clue; a label belongs to the square
+        c.cells = []
+        cell.label = (c.label || c.number).to_s if cell.label == ""
+        c.label = nil
+      end
+      c
     end
   end
 
@@ -297,15 +368,18 @@ module ExolveReader
     end
   end
 
-  # Each square is a character followed by optional decorators:
-  #   | bar after, _ bar under, + both, @ circle, * diagramless
-  # Circles and diagramless squares are not supported and are ignored.
+  # Each square is a character followed by optional decorators (see
+  # ExolveWriter#format_grid)
   def parse_grid(lines)
     grid = lines.map do |line|
-      line.scan(/([^\s|_+@*])([|_+@*]*)/).map do |c, decorators|
+      line.scan(/([^\s|_+@*!~])([|_+@*!~]*)/).map do |c, decorators|
         cell = Cell.new(:solution => parse_grid_char(c))
         cell.borders << :right if decorators =~ /[|+]/
         cell.borders << :bottom if decorators =~ /[_+]/
+        cell.circle = true if decorators.include?("@")
+        cell.diagramless = true if decorators.include?("*")
+        cell.given = true if decorators.include?("!")
+        cell.label = "" if decorators.include?("~")
         cell
       end
     end
@@ -326,12 +400,15 @@ module ExolveReader
   end
 end
 
+EXOLVE_FEATURES = %i(bars circles colors given diagramless labels
+                     explanations hints linked_clues nodir_clues)
+
 class ExolveFilled < Plugin
   include ExolveReader
   include ExolveWriter
 
   DESCRIPTION = "Exolve writer with solutions"
-  FEATURES = [:bars, :explanations, :hints, :linked_clues, :nodir_clues]
+  FEATURES = EXOLVE_FEATURES
 
   def grid_char(cell)
     cell.to_char
@@ -342,10 +419,11 @@ class ExolveBlank < Plugin
   include ExolveWriter
 
   DESCRIPTION = "Exolve writer without solutions"
-  FEATURES = [:bars, :explanations, :hints, :linked_clues, :nodir_clues]
+  FEATURES = EXOLVE_FEATURES
 
+  # given letters are shown even in a blank grid
   def grid_char(cell)
-    '0'
+    cell.given ? cell.to_char : '0'
   end
 end
 

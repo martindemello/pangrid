@@ -18,7 +18,7 @@ module Pangrid
       ydim = xw.height * scale + 2
       png = ChunkyPNG::Image.new(xdim, ydim, ChunkyPNG::Color::TRANSPARENT)
       xw.each_cell_with_coords do |x, y, cell|
-        c = cell.black? ? black : white
+        c = cell.light? ? white : black
         png.rect(
           x * scale, y * scale, (x + 1) * scale, (y + 1) * scale,
           grey, c)  # stroke, fill

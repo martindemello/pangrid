@@ -60,6 +60,12 @@ class QxwTest < PangridTest
                  xw.down_clues.map(&:to_s)
   end
 
+  def test_read_cutouts_as_void
+    data = qxw_for(%w(AB CD)).sub("SQ 0 0 0 0 0", "SQ 0 0 0 0 8")
+    xw = Qxw.new.read(data)
+    assert_equal %w(_B CD), grid_strings(xw)
+  end
+
   def test_errors
     assert_raises(PuzzleFormatError) { Qxw.new.read("no grid here\n") }
     assert_raises(PuzzleFormatError) { Qxw.new.read(qxw_for(GRID, type: 1)) }
