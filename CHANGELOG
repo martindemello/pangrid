@@ -1,3 +1,12 @@
+# [0.7.0] : 2026-11-15
+
+* Barred grids: read bars from qxw files, and read and write them in exolve
+  grids
+* Clue numbering and word extraction treat bars as word boundaries
+* Warn when converting to a format that cannot represent a feature of the
+  crossword (currently bars); pangrid -l shows which plugins support which
+  features
+
 # [0.6.1] : 2026-11-14
 
 * Clue files (-c): ignore comment lines starting with #, such as the
