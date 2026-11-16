@@ -37,6 +37,19 @@ class Plugin
 
   DESCRIPTION = ""
 
+  # Features (from XWord::FEATURES) that this format can represent. Plugins
+  # that support a feature override this.
+  FEATURES = []
+
+  def self.features
+    const_get(:FEATURES)
+  end
+
+  # Features used by xw that this plugin would lose
+  def self.unsupported_features(xw)
+    xw.features - features
+  end
+
   def self.inherited(subclass)
     name = class_to_name(subclass.name)
     #puts "Registered #{subclass} as #{name}"
@@ -77,6 +90,7 @@ class Plugin
       provides = provides.map {|m| {read: 'F', write: 'T'}[m]}.join
       puts "  #{name} [#{provides}]".ljust(30) + plugin.const_get(:DESCRIPTION)
     end
+    list_features
     if !MISSING_DEPS.empty?
       puts
       puts "-------------------------------------------------------"
@@ -94,6 +108,22 @@ class Plugin
         puts "  " + error
       end
     end
+  end
+
+  def self.list_features
+    features = XWord::FEATURES.keys
+    puts
+    puts "-------------------------------------------------------"
+    puts "Supported features (+ = yes, - = no):"
+    puts "-------------------------------------------------------"
+    puts "".ljust(30) + features.join("  ")
+    REGISTRY.keys.sort.each do |name|
+      supported = REGISTRY[name].features
+      marks = features.map {|f| (supported.include?(f) ? "+" : "-").ljust(f.length)}
+      puts ("  #{name}".ljust(30) + marks.join("  ")).rstrip
+    end
+    puts
+    features.each {|f| puts "  #{f}: #{XWord::FEATURES[f]}"}
   end
 
   def self.get(name)

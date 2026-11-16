@@ -113,6 +113,18 @@ class CLITest < PangridTest
     end
   end
 
+  def test_warns_about_unsupported_features
+    barred = File.expand_path('testdata/ny2.qxw', __dir__)
+    Dir.mktmpdir do |dir|
+      output = File.join(dir, "out")
+      _, err = run_pangrid(from: "qxw", to: "text", in: barred, out: output)
+      assert_match(/^Warning: text does not support bars between squares/, err)
+      assert File.exist?(output), "conversion should still go ahead"
+      _, err = run_pangrid(from: "qxw", to: "exolve-filled", in: barred, out: output)
+      assert_empty err
+    end
+  end
+
   def test_cli_writer_errors
     xw = make_xw(across: ACROSS + ["extra"])
     with_input(Json.new.write(xw)) do |input, output|

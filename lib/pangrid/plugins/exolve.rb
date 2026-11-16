@@ -39,6 +39,24 @@ module ExolveWriter
   def indent(lines)
     lines.map {|x| "  " + x}
   end
+
+  # Exolve marks bars with decorators after a square: | for a bar on the
+  # right, _ for a bar underneath and + for both. If the grid has any bars,
+  # squares are separated by spaces so that the columns line up.
+  def format_grid(xw)
+    rows = xw.to_array(:black => '.', :null => '0') {|c| grid_char(c)}
+    decorators = rows.each_index.map do |y|
+      rows[y].each_index.map do |x|
+        right, bottom = xw.bar?(x, y, :right), xw.bar?(x, y, :bottom)
+        right && bottom ? '+' : right ? '|' : bottom ? '_' : ' '
+      end
+    end
+    if decorators.flatten.all? {|d| d == ' '}
+      rows.map(&:join)
+    else
+      rows.zip(decorators).map {|r, d| r.zip(d).join.rstrip}
+    end
+  end
 end
 
 module ExolveReader
@@ -106,11 +124,30 @@ module ExolveReader
     end
   end
 
+  # Each square is a character followed by optional decorators:
+  #   | bar after, _ bar under, + both, @ circle, * diagramless
+  # Circles and diagramless squares are not supported and are ignored.
   def parse_grid(lines)
-    grid = lines.map {|x| x.gsub(/\s/, '').split(//)}
-    grid.map do |col|
-      col.map do |c|
-        Cell.new(:solution => parse_grid_char(c))
+    grid = lines.map do |line|
+      line.scan(/([^\s|_+@*])([|_+@*]*)/).map do |c, decorators|
+        cell = Cell.new(:solution => parse_grid_char(c))
+        cell.borders << :right if decorators =~ /[|+]/
+        cell.borders << :bottom if decorators =~ /[_+]/
+        cell
+      end
+    end
+    mirror_bars(grid)
+    grid
+  end
+
+  # Record each bar on the squares on both sides of it
+  def mirror_bars(grid)
+    grid.each_with_index do |row, y|
+      row.each_with_index do |cell, x|
+        right = row[x + 1]
+        below = grid[y + 1] && grid[y + 1][x]
+        right.borders |= [:left] if right && cell.has_bar?(:right)
+        below.borders |= [:top] if below && cell.has_bar?(:bottom)
       end
     end
   end
@@ -121,9 +158,10 @@ class ExolveFilled < Plugin
   include ExolveWriter
 
   DESCRIPTION = "Exolve writer with solutions"
+  FEATURES = [:bars]
 
-  def format_grid(xw)
-    xw.to_array(:black => '.', :null => '0').map(&:join)
+  def grid_char(cell)
+    cell.to_char
   end
 end
 
@@ -131,9 +169,10 @@ class ExolveBlank < Plugin
   include ExolveWriter
 
   DESCRIPTION = "Exolve writer without solutions"
+  FEATURES = [:bars]
 
-  def format_grid(xw)
-    xw.to_array(:black => '.', :null => '0') {|c| 0}.map(&:join)
+  def grid_char(cell)
+    '0'
   end
 end
 

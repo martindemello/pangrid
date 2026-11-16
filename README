@@ -8,7 +8,7 @@ $ pangrid -f across-lite-binary -t text -i sample.puz -o sample.txt
 # Add clues from a text file, e.g. to a grid from qxw, which has no clues
 $ pangrid -f qxw -t across-lite-binary -i grid.qxw -c clues.txt -o puzzle.puz
 
-# List available plugins
+# List available plugins, and the features (such as bars) each supports
 $ pangrid -l
 
 
@@ -39,3 +39,11 @@ the clues can be in any order. Numbers may be decorated ("7.", "**7.**",
 "7)"). Blank lines and lines starting with # are ignored. The clue numbers
 must match the grid exactly; missing or extra clues are reported as an error.
 The clues replace any that were already in the input file.
+
+
+Features:
+
+Not every format can represent everything a crossword can contain. Currently
+the only such feature is bars between squares, which the qxw and exolve
+formats support. If the input uses a feature the output format does not
+support, pangrid prints a warning and converts the rest of the crossword.

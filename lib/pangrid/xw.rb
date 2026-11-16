@@ -32,7 +32,12 @@ class Cell
   attr_accessor :solution, :number, :borders
 
   def initialize(**args)
+    @borders = []
     args.each {|k,v| self.send :"#{k}=", v}
+  end
+
+  def borders=(b)
+    @borders = b || []
   end
 
   def black?
@@ -115,6 +120,19 @@ class XWord
     ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact
   end
 
+  # Grid features that not every format can represent. Plugins list the ones
+  # they support in Plugin::FEATURES.
+  FEATURES = {
+    bars: "bars between squares"
+  }
+
+  # The features this crossword uses
+  def features
+    used = []
+    used << :bars if solution && solution.flatten.any? {|c| c && !c.borders.empty?}
+    used
+  end
+
   # Clue numbering
   def black?(x, y)
     solution[y][x].black?
@@ -124,12 +142,36 @@ class XWord
     (x < 0) || (y < 0) || (x >= width) || (y >= height) || black?(x, y)
   end
 
+  OPPOSITE = {left: :right, right: :left, top: :bottom, bottom: :top}
+  NEIGHBOUR = {left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1]}
+
+  # Is there a bar on the given side of square (x, y)? A bar may be recorded
+  # on either of the two squares it separates.
+  def bar?(x, y, side)
+    return false if boundary?(x, y)
+    return true if solution[y][x].has_bar?(side)
+    dx, dy = NEIGHBOUR[side]
+    nx, ny = x + dx, y + dy
+    !boundary?(nx, ny) && solution[ny][nx].has_bar?(OPPOSITE[side])
+  end
+
+  # Does a word in direction dir end after square (x, y)?
+  def word_end?(x, y, dir)
+    if dir == :across
+      boundary?(x + 1, y) || bar?(x, y, :right)
+    else
+      boundary?(x, y + 1) || bar?(x, y, :bottom)
+    end
+  end
+
   def across?(x, y)
-    boundary?(x - 1, y) && !boundary?(x, y) && !boundary?(x + 1, y)
+    (boundary?(x - 1, y) || bar?(x, y, :left)) &&
+      !boundary?(x, y) && !word_end?(x, y, :across)
   end
 
   def down?(x, y)
-    boundary?(x, y - 1) && !boundary?(x, y) && !boundary?(x, y + 1)
+    (boundary?(x, y - 1) || bar?(x, y, :top)) &&
+      !boundary?(x, y) && !word_end?(x, y, :down)
   end
 
   # Word starting from a square
@@ -137,6 +179,7 @@ class XWord
     s = ""
     while !boundary?(x, y) do
       s += solution[y][x].to_w
+      break if word_end?(x, y, dir)
       if dir == :across
         x += 1
       else

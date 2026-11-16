@@ -32,6 +32,61 @@ class ExolveTest < PangridTest
     refute_includes out, "CAT"
   end
 
+  #   A B|C
+  #   -
+  #   D E F
+  def barred_xw
+    xw = make_xw(grid: %w(ABC DEF), across: %w(a1 a4), down: %w(d2 d3))
+    xw.solution[0][1].borders = [:right]
+    xw.solution[0][2].borders = [:left]
+    xw.solution[0][0].borders = [:bottom]
+    xw.solution[1][0].borders = [:top]
+    xw
+  end
+
+  def test_write_bars
+    out = ExolveFilled.new.write(barred_xw)
+    assert_includes out, "  exolve-grid:\n    A_B|C\n    D E F\n"
+    assert_includes out, "  exolve-across:\n     1 a1\n     4 a4\n"
+    assert_includes out, "  exolve-down:\n     2 d2\n     3 d3\n"
+  end
+
+  def test_write_bar_after_and_under
+    xw = make_xw(grid: %w(AB CD))
+    xw.solution[0][0].borders = [:right, :bottom]
+    assert_includes ExolveBlank.new.write(xw), "  exolve-grid:\n    0+0\n    0 0\n"
+  end
+
+  def test_write_bar_recorded_on_one_side_only
+    xw = make_xw(grid: %w(AB))
+    xw.solution[0][1].borders = [:left]
+    assert_includes ExolveFilled.new.write(xw), "    A|B\n"
+  end
+
+  def test_read_bars
+    text = "exolve-begin\n  exolve-grid:\n    A_ B| C\n    D  E  F\nexolve-end\n"
+    xw = ExolveFilled.new.read(text)
+    assert_equal %w(ABC DEF), grid_strings(xw)
+    assert_equal [[:bottom], [:right], [:left]], xw.solution[0].map(&:borders)
+    assert_equal [[:top], [], []], xw.solution[1].map(&:borders)
+    assert_equal [[1, 4], [2, 3]], xw.number
+  end
+
+  def test_read_plus_and_ignored_decorators
+    text = "exolve-begin\n  exolve-grid:\n    A+ @B*\n    C  D\nexolve-end\n"
+    xw = ExolveFilled.new.read(text)
+    assert_equal %w(AB CD), grid_strings(xw)
+    assert_equal [:right, :bottom], xw.solution[0][0].borders
+    assert_equal [:left], xw.solution[0][1].borders
+    assert_equal [:top], xw.solution[1][0].borders
+  end
+
+  def test_roundtrip_bars
+    w = ExolveFilled.new
+    out = w.write(barred_xw)
+    assert_equal out, w.write(w.read(out))
+  end
+
   def test_write_omits_missing_headers
     xw = make_xw
     xw.copyright = nil
