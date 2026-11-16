@@ -8,19 +8,44 @@ class Qxw < Plugin
 
   DESCRIPTION = "QXW grid reader (rectangular grids only)"
 
-  def read_black(xw, lines)
-    # Read black cells
-    grid = lines.select {|x| x =~ /^SQ /}
-    grid.each do |line|
+  # Square lines have the format
+  #   SQ <x> <y> <bars> <merge> <flags> <char>
+  # bars: bit 0 = bar on the right edge, bit 1 = bar on the bottom edge
+  # flags: bit 0 = block
+  def read_squares(lines)
+    lines.select {|x| x =~ /^SQ /}.map do |line|
       parts = line.scan(/\w+/)
       check(QXW_GRID_ERROR) { parts.length == 6 || parts.length == 7 }
-      _, col, row, _, _, b, _ = parts
-      col, row, b = col.to_i, row.to_i, b.to_i
-      next if b != 1
-      cell = Cell.new
-      cell.solution = :black
+      _, col, row, bars, _, flags, _ = parts
+      [col, row, bars, flags].map(&:to_i)
+    end
+  end
+
+  def read_black(xw, squares)
+    squares.each do |col, row, _, flags|
+      next if flags & 1 == 0
       xw.solution[row] ||= []
-      xw.solution[row][col] = cell
+      xw.solution[row][col] = Cell.new(solution: :black)
+    end
+  end
+
+  # Each bar is stored once, on the square to its left or above it; record
+  # it on both squares it separates.
+  def read_bars(xw, squares)
+    add = lambda do |col, row, side|
+      cell = xw.solution[row] && xw.solution[row][col]
+      cell.borders |= [side] if cell
+    end
+    squares.each do |col, row, bars, _|
+      next if xw.boundary?(col, row)
+      if bars & 1 != 0 && !xw.boundary?(col + 1, row)
+        add.(col, row, :right)
+        add.(col + 1, row, :left)
+      end
+      if bars & 2 != 0 && !xw.boundary?(col, row + 1)
+        add.(col, row, :bottom)
+        add.(col, row + 1, :top)
+      end
     end
   end
 
@@ -54,10 +79,12 @@ class Qxw < Plugin
     xw.width = w
     xw.height = h
     xw.solution = []
+    squares = read_squares(lines)
     read_filled(xw, lines)
-    read_black(xw, lines)
+    read_black(xw, squares)
     check(QXW_GRID_ERROR) { xw.solution.length == xw.height }
     check(QXW_GRID_ERROR) { xw.solution.all? {|i| i.compact.length == xw.width} }
+    read_bars(xw, squares)
 
     # Placeholder clues
     _, _, words_a, words_d = xw.number(true)

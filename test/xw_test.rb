@@ -68,6 +68,31 @@ class XWordTest < PangridTest
     assert_equal [1, 2], down
   end
 
+  def test_numbering_with_bars
+    #   A B|C
+    #   -
+    #   D E F
+    xw = make_xw(grid: %w(ABC DEF))
+    xw.solution[0][1].borders = [:right]
+    xw.solution[0][0].borders = [:bottom]
+    across, down, words_a, words_d = xw.number(true)
+    assert_equal [1, 4], across
+    assert_equal [2, 3], down
+    assert_equal %w(AB DEF), words_a
+    assert_equal %w(BE CF), words_d
+    assert_equal [1, 2, 3], xw.solution[0].map(&:number)
+    assert_equal [4, nil, nil], xw.solution[1].map(&:number)
+  end
+
+  def test_bar_on_either_side
+    xw = make_xw(grid: %w(AB))
+    xw.solution[0][1].borders = [:left]
+    assert xw.bar?(0, 0, :right)
+    assert xw.bar?(1, 0, :left)
+    refute xw.bar?(1, 0, :right)
+    assert_equal [], xw.number[0]
+  end
+
   def test_boundary
     xw = make_xw
     assert xw.boundary?(-1, 0)
@@ -148,6 +173,12 @@ class CellTest < PangridTest
     c = Cell.new(solution: "A", borders: [:left, :top])
     assert c.has_bar?(:left)
     refute c.has_bar?(:right)
+  end
+
+  def test_borders_default_to_empty
+    assert_equal [], Cell.new(solution: "A").borders
+    assert_equal [], Cell.new(solution: "A", borders: nil).borders
+    refute Cell.new(solution: "A").has_bar?(:left)
   end
 
   def test_to_char
