@@ -68,6 +68,14 @@ class XWordTest < PangridTest
     assert_equal [1, 2], down
   end
 
+  def test_features
+    xw = make_xw
+    assert_equal [], xw.features
+    xw.solution[1][2].borders = [:top]
+    assert_equal [:bars], xw.features
+    assert_equal [], XWord.new.features
+  end
+
   def test_numbering_with_bars
     #   A B|C
     #   -

@@ -120,6 +120,19 @@ class XWord
     ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact
   end
 
+  # Grid features that not every format can represent. Plugins list the ones
+  # they support in Plugin::FEATURES.
+  FEATURES = {
+    bars: "bars between squares"
+  }
+
+  # The features this crossword uses
+  def features
+    used = []
+    used << :bars if solution && solution.flatten.any? {|c| c && !c.borders.empty?}
+    used
+  end
+
   # Clue numbering
   def black?(x, y)
     solution[y][x].black?

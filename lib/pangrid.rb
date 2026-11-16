@@ -104,6 +104,11 @@ module Pangrid
       end
     end
 
+    to.unsupported_features(xw).each do |f|
+      $stderr.puts "Warning: #{opts[:to]} does not support " +
+                   "#{XWord::FEATURES[f]}; they will be lost"
+    end
+
     begin
       output = writer.write(xw)
     rescue PuzzleFormatError => e

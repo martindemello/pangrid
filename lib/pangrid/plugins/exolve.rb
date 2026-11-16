@@ -158,6 +158,7 @@ class ExolveFilled < Plugin
   include ExolveWriter
 
   DESCRIPTION = "Exolve writer with solutions"
+  FEATURES = [:bars]
 
   def grid_char(cell)
     cell.to_char
@@ -168,6 +169,7 @@ class ExolveBlank < Plugin
   include ExolveWriter
 
   DESCRIPTION = "Exolve writer without solutions"
+  FEATURES = [:bars]
 
   def grid_char(cell)
     '0'

@@ -7,6 +7,7 @@ QXW_GRID_ERROR = "Could not read grid from .qxw file"
 class Qxw < Plugin
 
   DESCRIPTION = "QXW grid reader (rectangular grids only)"
+  FEATURES = [:bars]
 
   # Square lines have the format
   #   SQ <x> <y> <bars> <merge> <flags> <char>
