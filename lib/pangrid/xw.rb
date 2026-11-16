@@ -215,6 +215,7 @@ class XWord
     nodir_clues: "clues without a direction",
     ninas: "ninas",
     questions: "extra questions",
+    final_answer: "a final answer for the puzzle",
     misses: "hints for wrong answers",
     alternatives: "alternative answers"
   }
@@ -237,7 +238,10 @@ class XWord
     used << :hints if clues.any? {|c| !c.hints.empty?}
     used << :linked_clues if clues.any? {|c| !c.linked.empty? || c.parent}
     used << :nodir_clues if !nodir_clues.empty?
-    EXTRAS.each {|f| used << f if self[f] && !self[f].empty?}
+    (EXTRAS - [:questions]).each {|f| used << f if self[f] && !self[f].empty?}
+    questions = self.questions || []
+    used << :questions if questions.any?(&:text)
+    used << :final_answer if questions.any? {|q| !q.text}
     used
   end
 
@@ -261,6 +265,18 @@ class XWord
     dx, dy = NEIGHBOUR[side]
     nx, ny = x + dx, y + dy
     !boundary?(nx, ny) && solution[ny][nx].has_bar?(OPPOSITE[side])
+  end
+
+  # Record each bar on the squares on both sides of it
+  def mirror_bars!
+    each_cell_with_coords do |x, y, cell|
+      right = x + 1 < width && solution[y][x + 1]
+      below = y + 1 < height && solution[y + 1][x]
+      right.borders |= [:left] if right && cell.has_bar?(:right)
+      below.borders |= [:top] if below && cell.has_bar?(:bottom)
+      solution[y][x - 1].borders |= [:right] if x > 0 && cell.has_bar?(:left)
+      solution[y - 1][x].borders |= [:bottom] if y > 0 && cell.has_bar?(:top)
+    end
   end
 
   # Does a word in direction dir end after square (x, y)?

@@ -28,7 +28,9 @@ class XWordTest < PangridTest
     xw.questions = [Question.new("Q")]
     xw.misses = {"CAR" => "Close"}
     xw.alternatives = [{[0, 0] => "Z"}]
-    assert_equal %i(ninas questions misses alternatives), xw.features
+    assert_equal %i(ninas misses alternatives questions), xw.features
+    xw.questions = [Question.new(nil, "4", "CATS")]
+    assert_equal %i(ninas misses alternatives final_answer), xw.features
   end
 
   def test_clues_default_to_empty
@@ -140,6 +142,15 @@ class XWordTest < PangridTest
     assert_equal 2, xw.solution[2][0].number
     xw.solution[0][0].label = ""
     assert_equal [["", 1], ["", "X"]], xw.number
+  end
+
+  def test_mirror_bars
+    xw = make_xw(grid: %w(AB CD))
+    xw.solution[0][0].borders = [:right]
+    xw.solution[1][1].borders = [:top]
+    xw.mirror_bars!
+    assert_equal [[:right], [:left, :bottom]], xw.solution[0].map(&:borders)
+    assert_equal [[], [:top]], xw.solution[1].map(&:borders)
   end
 
   def test_lights

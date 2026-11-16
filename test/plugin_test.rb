@@ -10,7 +10,7 @@ class PluginTest < PangridTest
 
   def test_registry
     %w(across-lite-binary across-lite-text csv exolve-filled exolve-blank
-       json png-thumbnail qxw reddit-filled reddit-blank text).each do |name|
+       ipuz json png-thumbnail qxw reddit-filled reddit-blank text).each do |name|
       assert Plugin.get(name), "plugin #{name} not registered"
     end
     assert_nil Plugin.get("no-such-plugin")

@@ -288,6 +288,7 @@ module ExolveReader
       xw.solution.length == xw.height &&
         xw.solution.all? {|row| row.length == xw.width}
     }
+    xw.mirror_bars!
     read_clues(xw, clues)
     colours.each do |line|
       colour, cells = parse_cell_list(xw, line)
@@ -422,26 +423,13 @@ module ExolveReader
         cell
       end
     end
-    mirror_bars(grid)
     grid
-  end
-
-  # Record each bar on the squares on both sides of it
-  def mirror_bars(grid)
-    grid.each_with_index do |row, y|
-      row.each_with_index do |cell, x|
-        right = row[x + 1]
-        below = grid[y + 1] && grid[y + 1][x]
-        right.borders |= [:left] if right && cell.has_bar?(:right)
-        below.borders |= [:top] if below && cell.has_bar?(:bottom)
-      end
-    end
   end
 end
 
 EXOLVE_FEATURES = %i(bars circles colors given diagramless labels
                      explanations hints linked_clues nodir_clues
-                     ninas questions alternatives)
+                     ninas questions final_answer alternatives)
 
 class ExolveFilled < Plugin
   include ExolveReader
