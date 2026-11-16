@@ -168,6 +168,43 @@ class ExolveTest < PangridTest
     assert_equal ["Last (2,1) wins", "2"], xw.down_clues[2].then {|d| [d.text, d.enumeration]}
   end
 
+  # The examples from the exolve README
+  def test_read_enumeration_rules
+    xw = read_exolve(<<~EOF, grid: %w(ABCD EFGH IJKL MNOP))
+      exolve-across:
+        1 This (13) clue ends (word) here! (4)
+        5 This (13) clue also ends (1 word) here! (4) Some annotation follows.
+        6 This (13) clue also ends (words) here! (8) [] [t]WITTER The anno has (3) enum-like parts.
+        7 This clue, even though its anno contains an enum-like substring, ends here! (4) The (word) and (4 letters) enum-like parts here are not numeric.
+      exolve-down:
+        1 Two words (8, 2 words) anno
+        2 Spelt out (two words)
+        3 Short (7, 2w)
+        4 Odd (?)
+    EOF
+    a = xw.across_clues
+    assert_equal ["This (13) clue ends (word) here!", "4", nil],
+                 [a[0].text, a[0].enumeration, a[0].explanation]
+    assert_equal ["This (13) clue also ends (1 word) here!", "4", "Some annotation follows."],
+                 [a[1].text, a[1].enumeration, a[1].explanation]
+    assert_equal ["This (13) clue also ends (words) here!", "8",
+                  "[t]WITTER The anno has (3) enum-like parts."],
+                 [a[2].text, a[2].enumeration, a[2].explanation]
+    assert_equal ["This clue, even though its anno contains an enum-like substring, ends here!", "4"],
+                 [a[3].text, a[3].enumeration]
+    d = xw.down_clues
+    assert_equal ["Two words", "8, 2 words", "anno"], [d[0].text, d[0].enumeration, d[0].explanation]
+    assert_equal ["Spelt out", "two words"], [d[1].text, d[1].enumeration]
+    assert_equal ["Short", "7, 2w"], [d[2].text, d[2].enumeration]
+    assert_equal ["Odd", "?"], [d[3].text, d[3].enumeration]
+    assert_includes ExolveFilled.new.write(xw), "     1 Two words (8, 2 words) anno\n"
+  end
+
+  def test_read_question_with_word_count
+    xw = read_exolve("exolve-question: What is it? (8, 2 words) GET LOST\n")
+    assert_equal Question.new("What is it?", "8, 2 words", "GET LOST"), xw.questions[0]
+  end
+
   def test_read_aligns_clues_by_number
     xw = read_exolve(<<~EOF)
       exolve-across:

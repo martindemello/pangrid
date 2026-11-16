@@ -10,6 +10,37 @@ class ClueTest < PangridTest
     assert_equal "?", Clue.parse("Clue (?)").enumeration
   end
 
+  def test_parse_word_and_letter_counts
+    {"Clue (8, 2 words)" => "8, 2 words", "Clue (two words)" => "two words",
+     "Clue (7, 2w)" => "7, 2w", "Clue (7, 2words)" => "7, 2words",
+     "Clue (6 letters)" => "6 letters", "Clue (1 word)" => "1 word",
+     "Clue (abbr.)" => "abbr.", "Clue (acronym)" => "acronym",
+     "Clue (5, ?)" => "5, ?"}.each do |s, enum|
+      c = Clue.parse(s)
+      assert_equal enum, c.enumeration, s
+      assert_equal "Clue", c.text, s
+      assert_equal s, c.to_s
+    end
+  end
+
+  def test_enumeration_kind
+    assert_equal :numeric, Clue.enumeration_kind(" 4,3 ")
+    assert_equal :numeric, Clue.enumeration_kind("2'1-3.4")
+    assert_equal :other, Clue.enumeration_kind("8, 2 words")
+    assert_equal :other, Clue.enumeration_kind("?")
+    ["see 5", "a", "ab", "4x", "here"].each do |s|
+      assert_nil Clue.enumeration_kind(s), s
+    end
+  end
+
+  def test_find_enumeration_prefers_the_last_numeric_one
+    m = Clue.find_enumeration("This (13) clue ends (word) here! (4) Anno (2 words)")
+    assert_equal "4", m[1]
+    assert_equal "This (13) clue ends (word) here! ", m.pre_match
+    assert_equal "8, 2 words", Clue.find_enumeration("Clue (8, 2 words) anno (see)")[1]
+    assert_nil Clue.find_enumeration("No (enum) here")
+  end
+
   def test_parse_without_enumeration
     c = Clue.parse("No enum (here)")
     assert_equal "No enum (here)", c.text

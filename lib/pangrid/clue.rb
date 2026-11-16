@@ -36,9 +36,46 @@ class Clue
   # Fields that default to (and are never nil instead of) an empty list
   LISTS = %i(hints linked references cells tags)
 
-  # Characters an enumeration can contain, e.g. "4,3", "5-2", "2'1", "4.3"
-  ENUM = /[\d][\d,\-\s.'’]*|\?/
-  TRAILING_ENUM = /\A(.*?)\s*\((#{ENUM})\)\s*\z/m
+  # Enumerations follow the rules exolve uses. The usual kind is numeric:
+  # numbers, commas, hyphens, apostrophes, periods and spaces, e.g. "4,3",
+  # "5-2", "2'1", "4.3". An enumeration can also count words or letters
+  # ("8, 2 words", "two words", "7, 2w", "6 letters"), contain a "?", or say
+  # that the answer is an abbreviation or acronym.
+  NUMERIC_ENUM = /\A\d[\d,\-\s.'’]*\z/
+  ENUM_WORDS = {"words" => 1, "letters" => 1, "abbreviation" => 3, "acronym" => 3}
+  # A parenthesised group, optionally followed by * (exolve: hide the enum)
+  PAREN = /\(([^()]*)\)\*?/
+
+  # :numeric, :other, or nil if s (the text between the parentheses) is not
+  # an enumeration
+  def self.enumeration_kind(s)
+    s = s.strip
+    return :numeric if s.match?(NUMERIC_ENUM)
+    words = s.downcase.scan(/[[:alpha:]]+/)
+    wordy = words.any? do |w|
+      ENUM_WORDS.any? {|full, min| w.length >= min && full.start_with?(w)}
+    end
+    :other if wordy || s.include?("?")
+  end
+
+  # The enumeration in a clue, as MatchData for the parenthesised group (with
+  # the enumeration in m[1]), or nil. If there are several candidates, the
+  # last numeric one is used, so that "Ends (word) here (4)" has the
+  # enumeration 4; only if there is no numeric one is the last other kind
+  # used.
+  def self.find_enumeration(s)
+    candidates = s.to_enum(:scan, PAREN).map { Regexp.last_match }
+    kinds = candidates.map {|m| enumeration_kind(m[1])}
+    numeric = candidates.zip(kinds).select {|_, k| k == :numeric}.map(&:first)
+    other = candidates.zip(kinds).select {|_, k| k}.map(&:first)
+    (numeric.empty? ? other : numeric).last
+  end
+
+  # Text ending in an enumeration -> [text, enumeration], or nil
+  def self.split_trailing_enumeration(s)
+    m = s.match(/#{PAREN}\s*\z/)
+    [m.pre_match.rstrip, m[1].strip] if m && enumeration_kind(m[1])
+  end
 
   def initialize(text = nil, **args)
     @text = text
@@ -54,11 +91,12 @@ class Clue
   # Split a trailing enumeration off a clue: "Feline (3)" -> text "Feline",
   # enumeration "3"
   def self.parse(s, **args)
-    m = s.to_s.strip.match(TRAILING_ENUM)
-    if m
-      new(m[1], enumeration: m[2].strip, **args)
+    s = s.to_s.strip
+    text, enum = split_trailing_enumeration(s)
+    if enum
+      new(text, enumeration: enum, **args)
     else
-      new(s.to_s.strip, **args)
+      new(s, **args)
     end
   end
 

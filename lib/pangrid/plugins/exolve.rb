@@ -24,7 +24,6 @@ module ExolveClues
   LEAD = /\A(#{REF}(?:\s*[,&]\s*#{REF})*)\.?(?:\s+|\z)/
   CELL = /#([a-z]\d+|c\d+r\d+|r\d+c\d+)\s+/
   LABEL = /\A\[([^\]]+)\]\s*/
-  ENUM = /\((\d[\d,\-\s.'’]*)\)\*?/
 
   # [x, y] -> "c<col>r<row>", rows counted from the bottom
   def format_cell(xw, (x, y))
@@ -63,9 +62,8 @@ module ExolveClues
     end
     if s.include?("[]")
       text, anno = s.split("[]", 2)
-      m = text.match(/\A(.*?)\s*#{ENUM}\s*\z/m)
-      text, enum = m ? [m[1], m[2]] : [text, nil]
-    elsif (m = s.to_enum(:scan, ENUM).map { Regexp.last_match }.last)
+      text, enum = Clue.split_trailing_enumeration(text) || [text, nil]
+    elsif (m = Clue.find_enumeration(s))
       text, enum, anno = m.pre_match, m[1], m.post_match
     else
       text, enum, anno = s, nil, nil
@@ -300,7 +298,7 @@ module ExolveReader
 
   # "What links the ninas? (3,4) GET LOST"
   def parse_question(s)
-    m = s.to_enum(:scan, ENUM).map { Regexp.last_match }.last
+    m = Clue.find_enumeration(s)
     return Question.new(s.strip) unless m
     answer = m.post_match.strip
     Question.new(m.pre_match.strip, m[1].strip, answer.empty? ? nil : answer)

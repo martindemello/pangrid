@@ -53,6 +53,11 @@ class ClueListTest < PangridTest
     assert_match(/No clues found/, e.message)
   end
 
+  def test_word_count_enumerations
+    c = ClueList.read("Across\n1 Clue (8, 2 words)\n")
+    assert_equal ["Clue", "8, 2 words"], [c.across[1].text, c.across[1].enumeration]
+  end
+
   def test_linked_clue_text_is_kept
     c = ClueList.read("Across\n1, 3 Linked clue (3, 3)\n3 See 1\n")
     assert_equal({1 => "1, 3 Linked clue (3, 3)", 3 => "See 1"}, c.across.transform_values(&:to_s))
