@@ -95,6 +95,13 @@ class Cell
   alias_method :inspect, :to_w
 end
 
+# A nina (a hidden message in the grid): cells = [x, y][], color = string
+Nina = Struct.new(:cells, :color)
+
+# A question to answer after solving the grid, e.g. the theme of a meta
+# puzzle. text may be nil for a puzzle's final answer (ipuz answer).
+Question = Struct.new(:text, :enumeration, :answer)
+
 # A light (an across or down word): number is the clue number, or the
 # square's label if it has one
 Light = Struct.new(:number, :direction, :x, :y)
@@ -124,14 +131,24 @@ Light = Struct.new(:number, :direction, :x, :y)
 #   origin: the program that made the file (ipuz origin, exolve-maker)
 #   language: language and script, e.g. "hi Devanagari" (exolve-language)
 #   charset: the characters that can be entered (ipuz charset)
+#
+# Puzzle-wide extras:
+#   ninas: Nina[]
+#   questions: Question[]
+#   misses: { wrong answer => hint } shown when the solver enters a common
+#           wrong answer (ipuz misses)
+#   alternatives: { [x, y] => letter }[], groups of squares that may all be
+#                 filled with these letters instead (exolve-alternatives)
 class XWord
   METADATA = %i(title author editor copyright publisher publication url date
                 difficulty id preamble notes explanation postscript
                 annotation credits email origin language charset)
 
+  EXTRAS = %i(ninas questions misses alternatives)
+
   # Fields shared by all formats
   COMMON = %i(width height solution across_clues down_clues nodir_clues
-              rebus) + METADATA
+              rebus) + METADATA + EXTRAS
 
   # AcrossLite binary format fields
   #   clues: across and down clues interleaved in numerical order
@@ -195,7 +212,11 @@ class XWord
     explanations: "clue explanations",
     hints: "clue hints",
     linked_clues: "linked clues",
-    nodir_clues: "clues without a direction"
+    nodir_clues: "clues without a direction",
+    ninas: "ninas",
+    questions: "extra questions",
+    misses: "hints for wrong answers",
+    alternatives: "alternative answers"
   }
 
   # The features this crossword uses
@@ -216,6 +237,7 @@ class XWord
     used << :hints if clues.any? {|c| !c.hints.empty?}
     used << :linked_clues if clues.any? {|c| !c.linked.empty? || c.parent}
     used << :nodir_clues if !nodir_clues.empty?
+    EXTRAS.each {|f| used << f if self[f] && !self[f].empty?}
     used
   end
 

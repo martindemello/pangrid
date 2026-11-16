@@ -140,6 +140,7 @@ module ExolveWriter
       body += section("nodir", xw.nodir_clues.flat_map {|c| format_clue(xw, nil, c)})
     end
     body += format_colours(xw)
+    body += format_extras(xw)
     body += header("explanations", xw.explanation, multiline: true) if xw.explanation
     body += header("postscript", xw.postscript, multiline: true) if xw.postscript
     out = ["exolve-begin"] + indent(body) + ["exolve-end"]
@@ -181,6 +182,20 @@ module ExolveWriter
   def format_clues(xw, clues, dir)
     lights = xw.lights.select {|l| l.direction == dir}
     lights.each_with_index.flat_map {|l, i| format_clue(xw, l, clues[i])}
+  end
+
+  def format_extras(xw)
+    out = (xw.ninas || []).map do |n|
+      "exolve-nina: " + ([n.color] + n.cells.map {|c| format_cell(xw, c)}).compact.join(" ")
+    end
+    out += (xw.questions || []).map do |q|
+      # exolve needs an enumeration to check an answer
+      enum = q.enumeration || (q.answer && q.answer.split(/\s+/).map(&:length).join(","))
+      "exolve-question: " + [q.text, enum && "(#{enum})", q.answer].compact.join(" ")
+    end
+    out + (xw.alternatives || []).map do |group|
+      "exolve-alternatives: " + group.map {|c, l| "#{format_cell(xw, c)}:#{l}"}.join(" ")
+    end
   end
 
   # One exolve-colour line per colour
@@ -233,7 +248,7 @@ module ExolveReader
     lines = s[(first + 1)...last]
     xw = XWord.new
     clues = {}
-    colours = []
+    colours, ninas = [], []
     sections(lines).each do |field, value, body|
       text = value.empty? ? body.map(&:strip).join("\n") : value
       next if field == "id" && text == PLACEHOLDER_ID
@@ -255,6 +270,12 @@ module ExolveReader
         clues[field] = body
       elsif %w(colour color).include? field
         colours << text
+      elsif field == "nina"
+        ninas << text
+      elsif field == "question"
+        (xw.questions ||= []) << parse_question(text)
+      elsif field == "alternatives"
+        (xw.alternatives ||= []) << parse_alternatives(xw, text)
       elsif field == "grid"
         xw.solution = parse_grid(body)
       end
@@ -272,7 +293,25 @@ module ExolveReader
       colour, cells = parse_cell_list(xw, line)
       cells.each {|x, y| xw.solution[y][x].color = colour} if colour
     end
+    xw.ninas = ninas.map {|line| Nina.new(*parse_cell_list(xw, line).reverse)} unless ninas.empty?
     xw
+  end
+
+  # "What links the ninas? (3,4) GET LOST"
+  def parse_question(s)
+    m = s.to_enum(:scan, ENUM).map { Regexp.last_match }.last
+    return Question.new(s.strip) unless m
+    answer = m.post_match.strip
+    Question.new(m.pre_match.strip, m[1].strip, answer.empty? ? nil : answer)
+  end
+
+  # "r1c6:Z r2c1:A" -> {[5, 2] => "Z", [0, 1] => "A"}
+  def parse_alternatives(xw, s)
+    s.split.each_with_object({}) do |word, h|
+      loc, letter = word.split(":", 2)
+      cell = parse_cell(xw.height, loc)
+      h[cell] = letter if cell && letter
+    end
   end
 
   # "palegreen a1 c2r3 A12 16D" -> ["palegreen", [[x, y], ...]], where A12
@@ -401,7 +440,8 @@ module ExolveReader
 end
 
 EXOLVE_FEATURES = %i(bars circles colors given diagramless labels
-                     explanations hints linked_clues nodir_clues)
+                     explanations hints linked_clues nodir_clues
+                     ninas questions alternatives)
 
 class ExolveFilled < Plugin
   include ExolveReader

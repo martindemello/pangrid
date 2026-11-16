@@ -20,6 +20,17 @@ class XWordTest < PangridTest
     end
   end
 
+  def test_extras_features
+    xw = make_xw
+    xw.ninas = []
+    assert_equal [], xw.features
+    xw.ninas = [Nina.new([[0, 0]])]
+    xw.questions = [Question.new("Q")]
+    xw.misses = {"CAR" => "Close"}
+    xw.alternatives = [{[0, 0] => "Z"}]
+    assert_equal %i(ninas questions misses alternatives), xw.features
+  end
+
   def test_clues_default_to_empty
     assert_equal [], XWord.new.across_clues
     assert_equal [], XWord.new.down_clues

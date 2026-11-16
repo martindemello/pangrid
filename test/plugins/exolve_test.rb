@@ -359,6 +359,34 @@ class ExolveTest < PangridTest
     assert_equal %w(b-b --b bbb), colours
   end
 
+  def test_extras
+    xw = make_xw
+    xw.ninas = [Nina.new([[0, 0], [2, 2]], "red"), Nina.new([[1, 0]], nil)]
+    xw.questions = [Question.new("What links them? [lowercase-ok]", "3,4", "GET LOST"),
+                    Question.new("Theme?", nil, "CATS"),
+                    Question.new("Any comments?", nil, nil)]
+    xw.alternatives = [{[0, 0] => "Z", [1, 0] => "Y"}]
+    w = ExolveFilled.new
+    out = w.write(xw)
+    assert_includes out, "  exolve-nina: red c1r3 c3r1\n  exolve-nina: c2r3\n"
+    assert_includes out, "  exolve-question: What links them? [lowercase-ok] (3,4) GET LOST\n"
+    assert_includes out, "  exolve-question: Theme? (4) CATS\n"
+    assert_includes out, "  exolve-question: Any comments?\n"
+    assert_includes out, "  exolve-alternatives: c1r3:Z c2r3:Y\n"
+    read = w.read(out)
+    assert_equal xw.ninas, read.ninas
+    assert_equal xw.questions[0], read.questions[0]
+    assert_equal Question.new("Theme?", "4", "CATS"), read.questions[1]
+    assert_equal xw.questions[2], read.questions[2]
+    assert_equal xw.alternatives, read.alternatives
+    assert_equal out, w.write(read)
+  end
+
+  def test_read_nina_by_clue
+    xw = read_exolve("exolve-nina: A1\n")
+    assert_equal [Nina.new([[0, 0], [1, 0], [2, 0]], nil)], xw.ninas
+  end
+
   def test_read_errors
     assert_raises(PuzzleFormatError) { ExolveFilled.new.read("exolve-end\n") }
     assert_raises(PuzzleFormatError) { ExolveFilled.new.read("exolve-begin\n") }
