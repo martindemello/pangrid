@@ -2,6 +2,8 @@
 # crossword solver that allows you to embed the crossword and solving software
 # in a single HTML file.
 
+require 'strscan'
+
 module Pangrid
 
 # Clue syntax shared by the reader and writer:
@@ -20,10 +22,27 @@ module ExolveClues
   PLACEHOLDER_ID = 'replace-with-unique-id'
 
   DIRECTION_SUFFIX = {"a" => :across, "d" => :down}
-  REF = /\d+[adbu]?/
-  LEAD = /\A(#{REF}(?:\s*[,&]\s*#{REF})*)\.?(?:\s+|\z)/
+
+  # Tokens of a clue line, in the order they appear. These are matched by a
+  # StringScanner, so they are anchored at the scan position.
+  #
+  # A cell location before a nodir clue: "#c3r1", "#r1c3" or "#a3"
   CELL = /#([a-z]\d+|c\d+r\d+|r\d+c\d+)\s+/
-  LABEL = /\A\[([^\]]+)\]\s*/
+  # One clue reference: a number with an optional direction suffix
+  REF = /\d+[adbu]?/
+  # The clue number and any linked parts, "1, 5, 2d" or "1 & 5", optionally
+  # followed by a period. It must be followed by a space or the end of the
+  # line, so that "2nd place" isn't read as clue 2.
+  LEAD = /(#{REF}(?:\s*[,&]\s*#{REF})*)\.?(?:\s+|\z)/
+  # A label shown instead of the number: "[A]"
+  LABEL = /\[([^\]]+)\]\s*/
+  # Marks the end of the clue text when there is no enumeration
+  END_OF_CLUE = /\[\]/
+  # Lines that add to the clue before them
+  HINT = /hint:\s*/i
+  CONCISE = /concise:\s*/i
+  # Separator lines between groups of clues
+  SEPARATOR = /---/
 
   # [x, y] -> "c<col>r<row>", rows counted from the bottom
   def format_cell(xw, (x, y))
@@ -43,49 +62,54 @@ module ExolveClues
   end
 
   # String -> Clue
+  #
+  # A clue line is, in order: cell locations, the number and linked parts,
+  # a label, the clue text, the enumeration, and the explanation. All are
+  # optional except the text.
   def parse_clue(line, height)
     clue = Clue.new
-    s = line.strip
-    while (m = s.match(/\A#{CELL}/))
-      clue.cells << parse_cell(height, m[1])
-      s = m.post_match
-    end
-    if (m = s.match(LEAD))
-      first, *rest = m[1].split(/\s*[,&]\s*/)
+    ss = StringScanner.new(line.strip)
+    clue.cells << parse_cell(height, ss[1]) while ss.scan(CELL)
+    if ss.scan(LEAD)
+      first, *rest = ss[1].scan(REF)
       clue.number = first.to_i
       clue.linked = rest.map {|r| parse_ref(r)}
-      s = m.post_match
     end
-    if (m = s.match(LABEL))
-      clue.label = m[1]
-      s = m.post_match
-    end
-    if s.include?("[]")
-      text, anno = s.split("[]", 2)
-      text, enum = Clue.split_trailing_enumeration(text) || [text, nil]
-    elsif (m = Clue.find_enumeration(s))
-      text, enum, anno = m.pre_match, m[1], m.post_match
-    else
-      text, enum, anno = s, nil, nil
-    end
+    clue.label = ss[1] if ss.scan(LABEL)
+    text, enum, anno = parse_clue_body(ss)
     clue.text = text.strip
     clue.enumeration = enum && enum.strip
     clue.explanation = anno.strip if anno && !anno.strip.empty?
     clue
   end
 
+  # The rest of a clue line -> [text, enumeration, explanation]. With "[]",
+  # the text ends there and may itself end in an enumeration; otherwise the
+  # enumeration is found by Clue.find_enumeration's rules.
+  def parse_clue_body(ss)
+    if (upto = ss.scan_until(END_OF_CLUE))
+      text = upto.delete_suffix(ss.matched)
+      text, enum = Clue.split_trailing_enumeration(text) || [text, nil]
+      [text, enum, ss.rest]
+    elsif (m = Clue.find_enumeration(ss.rest))
+      [m.pre_match, m[1], m.post_match]
+    else
+      [ss.rest, nil, nil]
+    end
+  end
+
   # String[] -> Clue[], attaching Hint: and Concise: lines to their clues
   def parse_clues(lines, height)
     clues = []
     lines.each do |line|
-      line = line.strip
-      next if line.empty? || line.start_with?("---")
-      if (m = line.match(/\Ahint:\s*/i)) && clues.last
-        clues.last.hints << m.post_match
-      elsif (m = line.match(/\Aconcise:\s*/i)) && clues.last
-        clues.last.concise = m.post_match
+      ss = StringScanner.new(line.strip)
+      next if ss.eos? || ss.match?(SEPARATOR)
+      if clues.last && ss.scan(HINT)
+        clues.last.hints << ss.rest
+      elsif clues.last && ss.scan(CONCISE)
+        clues.last.concise = ss.rest
       else
-        clues << parse_clue(line, height)
+        clues << parse_clue(ss.string, height)
       end
     end
     clues
