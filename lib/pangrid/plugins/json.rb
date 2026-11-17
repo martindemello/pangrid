@@ -37,8 +37,8 @@ class Json < Plugin
       rows: xw.height,
       cols: xw.width,
       cells: cells,
-      across: xw.across_clues,
-      down: xw.down_clues
+      across: xw.across_clues.map(&:to_s),
+      down: xw.down_clues.map(&:to_s)
     }
 
     ::JSON.generate(h)

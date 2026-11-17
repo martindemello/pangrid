@@ -110,20 +110,17 @@ class Plugin
     end
   end
 
+  # One row per feature, followed by the plugins that support it
   def self.list_features
-    features = XWord::FEATURES.keys
     puts
     puts "-------------------------------------------------------"
-    puts "Supported features (+ = yes, - = no):"
+    puts "Features, and the plugins that support them:"
     puts "-------------------------------------------------------"
-    puts "".ljust(30) + features.join("  ")
-    REGISTRY.keys.sort.each do |name|
-      supported = REGISTRY[name].features
-      marks = features.map {|f| (supported.include?(f) ? "+" : "-").ljust(f.length)}
-      puts ("  #{name}".ljust(30) + marks.join("  ")).rstrip
+    XWord::FEATURES.each do |f, desc|
+      plugins = REGISTRY.keys.sort.select {|name| REGISTRY[name].features.include?(f)}
+      puts "  #{f.to_s.ljust(14)} #{desc}"
+      puts "  #{' ' * 14} #{plugins.empty? ? '(none)' : plugins.join(' ')}"
     end
-    puts
-    features.each {|f| puts "  #{f}: #{XWord::FEATURES[f]}"}
   end
 
   def self.get(name)

@@ -32,8 +32,8 @@ class AcrossLiteBinaryTest < PangridTest
   def test_roundtrip
     xw = roundtrip(make_xw)
     assert_equal %w(CAT A#O BEE), grid_strings(xw)
-    assert_equal ACROSS, xw.across_clues
-    assert_equal DOWN, xw.down_clues
+    assert_equal ACROSS, xw.across_clues.map(&:to_s)
+    assert_equal DOWN, xw.down_clues.map(&:to_s)
     assert_equal "Title", xw.title
     assert_equal "Author", xw.author
     assert_equal "Copyright", xw.copyright
@@ -49,7 +49,7 @@ class AcrossLiteBinaryTest < PangridTest
     read = AcrossLiteBinary.new.read(out)
     assert_equal "Café", read.title
     assert_equal Encoding::UTF_8, read.title.encoding
-    assert_equal ["Naïve", "Bee sound"], read.across_clues
+    assert_equal ["Naïve", "Bee sound"], read.across_clues.map(&:to_s)
   end
 
   def test_unrepresentable_characters_are_replaced
@@ -143,6 +143,41 @@ class AcrossLiteBinaryTest < PangridTest
     assert_raises(PuzzleFormatError) { AcrossLiteBinary.new.read(data) }
   end
 
+  def test_roundtrip_circles
+    xw = make_xw
+    xw.solution[0][1].circle = true
+    out = AcrossLiteBinary.new.write(xw)
+    read = AcrossLiteBinary.new.read(out)
+    assert read.solution[0][1].circle
+    assert_equal 1, read.solution.flatten.count(&:circle)
+    assert_equal ["GEXT"], read.extensions.map(&:section)
+    assert_equal out, AcrossLiteBinary.new.write(read)
+  end
+
+  def test_rewriting_keeps_other_gext_flags
+    xw = make_xw
+    xw.solution[0][0].circle = true
+    read = roundtrip(xw)
+    gext = read.extensions.find {|e| e.section == "GEXT"}
+    gext.grid[8] = 0x40  # revealed
+    read.solution[0][0].circle = false
+    read.solution[2][2].circle = true
+    again = roundtrip(read)
+    assert_equal [0] * 8 + [0xc0], again.extensions.find {|e| e.section == "GEXT"}.grid
+  end
+
+  def test_no_gext_without_circles
+    assert_nil roundtrip(make_xw).extensions.find {|e| e.section == "GEXT"}
+  end
+
+  def test_labels_keep_clue_order
+    xw = make_xw
+    xw.solution[0][2].label = "X"
+    read = roundtrip(xw)
+    assert_equal ACROSS, read.across_clues.map(&:to_s)
+    assert_equal DOWN, read.down_clues.map(&:to_s)
+  end
+
   def test_ext_helpers
     w = AcrossLiteBinary.new
     e = Extension.new(elapsed: 10, stopped: false)
@@ -194,8 +229,8 @@ class AcrossLiteTextTest < PangridTest
     xw = AcrossLiteText.new.read(text)
     assert_equal 2, xw.version
     assert_equal %w(CAT A#O BEE), grid_strings(xw)
-    assert_equal ACROSS, xw.across_clues
-    assert_equal DOWN, xw.down_clues
+    assert_equal ACROSS, xw.across_clues.map(&:to_s)
+    assert_equal DOWN, xw.down_clues.map(&:to_s)
     assert_equal "Title", xw.title
     assert_equal "a note", xw.notes
   end

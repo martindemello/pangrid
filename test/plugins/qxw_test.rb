@@ -17,8 +17,8 @@ class QxwTest < PangridTest
     xw = Qxw.new.read(qxw_for(GRID))
     assert_equal 3, xw.width
     assert_equal %w(CAT A#O BEE), grid_strings(xw)
-    assert_equal ["[CAT]", "[BEE]"], xw.across_clues
-    assert_equal ["[CAB]", "[TOE]"], xw.down_clues
+    assert_equal ["[CAT]", "[BEE]"], xw.across_clues.map(&:to_s)
+    assert_equal ["[CAB]", "[TOE]"], xw.down_clues.map(&:to_s)
   end
 
   def test_read_empty_cells
@@ -34,19 +34,15 @@ class QxwTest < PangridTest
   def test_read_bars
     # bar between (0, 0) and (1, 0), and below (2, 0)
     xw = Qxw.new.read(qxw_for(%w(ABC DEF GHI), bars: {[0, 0] => 1, [2, 0] => 2}))
-    assert_equal [:right], xw.solution[0][0].borders
-    assert_equal [:left], xw.solution[0][1].borders
-    assert_equal [:bottom], xw.solution[0][2].borders
-    assert_equal [:top], xw.solution[1][2].borders
-    assert_equal [], xw.solution[1][1].borders
-    assert_equal ["[BC]", "[DEF]", "[GHI]"], xw.across_clues
-    assert_equal ["[ADG]", "[BEH]", "[FI]"], xw.down_clues
+    assert_equal({[0, 0, :right] => :bar, [2, 0, :bottom] => :bar}, xw.bars)
+    assert_equal ["[BC]", "[DEF]", "[GHI]"], xw.across_clues.map(&:to_s)
+    assert_equal ["[ADG]", "[BEH]", "[FI]"], xw.down_clues.map(&:to_s)
   end
 
   def test_ignores_bars_on_grid_edge_and_blocks
     # qxw can leave bar bits set on edge squares and blocks
     xw = Qxw.new.read(qxw_for(%w(A#B CDE), bars: {[2, 0] => 1, [1, 0] => 3, [0, 1] => 2}))
-    assert xw.solution.flatten.all? {|c| c.borders.empty?}
+    assert_empty xw.bars
   end
 
   def test_read_barred_sample
@@ -54,10 +50,16 @@ class QxwTest < PangridTest
     assert_equal [8, 10], [xw.width, xw.height]
     assert_equal %w(PILASTER UNITE ONES TIRESOME ENSNARE CYANIDE
                     BEARSKIN ORCS TEETH RETIREES).map {|w| "[#{w}]"},
-                 xw.across_clues
+                 xw.across_clues.map(&:to_s)
     assert_equal %w(PUTTER INSINCERE LIAR ATHENA TENOR ROSE REMEDIATE
                     ANSWER TENTHS YACHT BOAR KNEE).map {|w| "[#{w}]"},
-                 xw.down_clues
+                 xw.down_clues.map(&:to_s)
+  end
+
+  def test_read_cutouts_as_void
+    data = qxw_for(%w(AB CD)).sub("SQ 0 0 0 0 0", "SQ 0 0 0 0 8")
+    xw = Qxw.new.read(data)
+    assert_equal %w(_B CD), grid_strings(xw)
   end
 
   def test_errors

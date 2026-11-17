@@ -10,7 +10,7 @@ class PluginTest < PangridTest
 
   def test_registry
     %w(across-lite-binary across-lite-text csv exolve-filled exolve-blank
-       json png-thumbnail qxw reddit-filled reddit-blank text).each do |name|
+       ipuz json png-thumbnail qxw reddit-filled reddit-blank text).each do |name|
       assert Plugin.get(name), "plugin #{name} not registered"
     end
     assert_nil Plugin.get("no-such-plugin")
@@ -25,16 +25,14 @@ class PluginTest < PangridTest
 
   def test_list_all_shows_features
     out, _ = capture_io { Plugin.list_all }
-    assert_match(/^ +bars$/, out)
-    assert_match(/^  exolve-filled +\+$/, out)
-    assert_match(/^  text +-$/, out)
-    assert_match(/bars: bars between squares/, out)
+    assert_match(/^  bars +bars between squares\n +.*exolve-filled.*\n/, out)
+    refute_match(/^  bars +bars between squares\n +.*text.*\n/, out)
   end
 
   def test_features
     assert_equal [], Plugin.features
-    assert_equal [:bars], Plugin.get("exolve-filled").features
-    assert_equal [:bars], Plugin.get("exolve-blank").features
+    assert_includes Plugin.get("exolve-filled").features, :bars
+    assert_includes Plugin.get("exolve-blank").features, :bars
     assert_equal [], Plugin.get("text").features
     assert XWord::FEATURES.keys.include?(:bars)
   end
@@ -42,7 +40,7 @@ class PluginTest < PangridTest
   def test_unsupported_features
     xw = make_xw
     assert_equal [], Plugin.get("text").unsupported_features(xw)
-    xw.solution[0][0].borders = [:right]
+    xw.set_bar(0, 0, :right)
     assert_equal [:bars], Plugin.get("text").unsupported_features(xw)
     assert_equal [], Plugin.get("exolve-filled").unsupported_features(xw)
   end

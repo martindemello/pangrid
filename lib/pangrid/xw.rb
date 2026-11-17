@@ -1,3 +1,5 @@
+require_relative 'clue'
+
 module Pangrid
 
 class PuzzleFormatError < StandardError
@@ -25,27 +27,41 @@ class Rebus
   end
 end
 
-# solution = :black | :null | char | Rebus
-# number = int
-# borders = [:left, :right, :top, :bottom]
+# solution = :black | :null | :void | char | Rebus
+#   :null is an empty light (a square whose letter isn't known); :void is a
+#   square that is not part of the grid at all (ipuz null, qxw cutouts)
+# number = int, filled in by XWord#number
+# circle, highlight, given, diagramless = bool
+#   given: the letter is shown to the solver (exolve "!", ipuz "value")
+# color = string, as given in the source file (e.g. "FF0000", "palegreen")
+# label = string shown instead of the clue number; labelled squares don't
+#         use up a number, and "" means no number at all (exolve "~")
+# marks = { "TL" | "T" | "TR" | "L" | "C" | "R" | "BL" | "B" | "BR" => text }
+#         small text in the corners or sides of the square (ipuz mark)
 class Cell
-  attr_accessor :solution, :number, :borders
+  attr_accessor :solution, :number, :circle, :color, :highlight,
+                :given, :diagramless, :label, :marks
 
   def initialize(**args)
-    @borders = []
+    @marks = {}
     args.each {|k,v| self.send :"#{k}=", v}
   end
 
-  def borders=(b)
-    @borders = b || []
+  def marks=(m)
+    @marks = m || {}
   end
 
   def black?
     solution == :black
   end
 
-  def has_bar?(s)
-    borders.include? s
+  def void?
+    solution == :void
+  end
+
+  # Part of a word: not a block or a void square
+  def light?
+    !black? && !void?
   end
 
   def rebus?
@@ -60,6 +76,7 @@ class Cell
     case solution
     when :black; '#'
     when :null; '.'
+    when :void; '_'
     when Rebus; solution.inspect
     else; solution
     end
@@ -68,15 +85,65 @@ class Cell
   alias_method :inspect, :to_w
 end
 
+# A nina (a hidden message in the grid): cells = [x, y][], color = string
+Nina = Struct.new(:cells, :color)
+
+# A question to answer after solving the grid, e.g. the theme of a meta
+# puzzle. text may be nil for a puzzle's final answer (ipuz answer).
+Question = Struct.new(:text, :enumeration, :answer)
+
+# A light (an across or down word): number is the clue number, or the
+# square's label if it has one
+Light = Struct.new(:number, :direction, :x, :y)
+
 # solution = Cell[][]
 # width, height = int
-# across_clues = string[]
-# down_clues = string[]
+# across_clues = Clue[], one per across light, in numbering order
+# down_clues = Clue[]
+# nodir_clues = Clue[], clues without a direction (exolve nodir, ipuz
+#               "Clues"), typically with a label and a list of cells
 # rebus = { solution => [int, rebus_char] }
+# bars = { [x, y, :right | :bottom] => :bar }, the bars between squares. Each
+#        bar is stored once, as the right or bottom edge of the square to its
+#        left or above it; use bar? and set_bar rather than editing the hash.
+#        The value is the style of the edge, leaving room for others (e.g.
+#        ipuz dotted or dashed edges).
+#
+# The clue lists also accept strings, which are converted to Clues.
+#
+# Metadata (all strings unless noted):
+#   title, author, editor, copyright, publisher, publication, url
+#   date: as given in the source file (ipuz uses mm/dd/yyyy)
+#   difficulty
+#   id: a unique id for the puzzle (ipuz uniqueid, exolve-id)
+#   preamble: instructions shown before solving (ipuz intro, exolve-prelude)
+#   notes: notes shown alongside the puzzle (AcrossLite notepad, ipuz notes)
+#   explanation: shown after solving (ipuz explanation, exolve-explanations)
+#   postscript: text shown below the puzzle (exolve-postscript)
+#   annotation: never shown to the solver (ipuz annotation)
+#   credits: string[] (exolve-credits)
+#   email: contact address(es) for the setter (exolve-email)
+#   origin: the program that made the file (ipuz origin, exolve-maker)
+#   language: language and script, e.g. "hi Devanagari" (exolve-language)
+#   charset: the characters that can be entered (ipuz charset)
+#
+# Puzzle-wide extras:
+#   ninas: Nina[]
+#   questions: Question[]
+#   misses: { wrong answer => hint } shown when the solver enters a common
+#           wrong answer (ipuz misses)
+#   alternatives: { [x, y] => letter }[], groups of squares that may all be
+#                 filled with these letters instead (exolve-alternatives)
 class XWord
-  # Metadata shared by all formats
-  COMMON = %i(width height solution across_clues down_clues
-              title author copyright notes preamble rebus)
+  METADATA = %i(title author editor copyright publisher publication url date
+                difficulty id preamble notes explanation postscript
+                annotation credits email origin language charset)
+
+  EXTRAS = %i(ninas questions misses alternatives)
+
+  # Fields shared by all formats
+  COMMON = %i(width height solution bars across_clues down_clues nodir_clues
+              rebus) + METADATA + EXTRAS
 
   # AcrossLite binary format fields
   #   clues: across and down clues interleaved in numerical order
@@ -94,16 +161,24 @@ class XWord
   def initialize(**args)
     @across_clues = []
     @down_clues = []
+    @nodir_clues = []
+    @bars = {}
     args.each {|k, v| self[k] = v}
   end
 
-  # Writers can rely on the clue lists being arrays
-  def across_clues=(clues)
-    @across_clues = clues || []
+  # Writers can rely on the clue lists being arrays of Clues
+  %i(across_clues down_clues nodir_clues).each do |list|
+    define_method(:"#{list}=") do |clues|
+      instance_variable_set(:"@#{list}", (clues || []).map {|c| Clue.coerce(c)})
+    end
   end
 
-  def down_clues=(clues)
-    @down_clues = clues || []
+  def bars=(b)
+    @bars = b || {}
+  end
+
+  def all_clues
+    (across_clues + down_clues + nodir_clues).compact
   end
 
   def [](k)
@@ -117,19 +192,58 @@ class XWord
   end
 
   def to_h
-    ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact
+    ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact.reject {|k, v|
+      (k == :nodir_clues || k == :bars) && v.empty?
+    }
   end
 
   # Grid features that not every format can represent. Plugins list the ones
   # they support in Plugin::FEATURES.
   FEATURES = {
-    bars: "bars between squares"
+    bars: "bars between squares",
+    circles: "circled squares",
+    colors: "coloured squares",
+    highlights: "highlighted squares",
+    given: "letters given in the grid",
+    diagramless: "diagramless squares",
+    labels: "non-standard clue numbers",
+    marks: "text in the corners of squares",
+    void: "squares outside the grid",
+    explanations: "clue explanations",
+    hints: "clue hints",
+    linked_clues: "linked clues",
+    definitions: "definitions marked in clues",
+    nodir_clues: "clues without a direction",
+    ninas: "ninas",
+    questions: "extra questions",
+    final_answer: "a final answer for the puzzle",
+    misses: "hints for wrong answers",
+    alternatives: "alternative answers"
   }
 
   # The features this crossword uses
   def features
+    cells = solution ? solution.flatten.compact : []
+    clues = all_clues
     used = []
-    used << :bars if solution && solution.flatten.any? {|c| c && !c.borders.empty?}
+    used << :bars if bars.value?(:bar)
+    used << :circles if cells.any?(&:circle)
+    used << :colors if cells.any?(&:color)
+    used << :highlights if cells.any?(&:highlight)
+    used << :given if cells.any?(&:given)
+    used << :diagramless if cells.any?(&:diagramless)
+    used << :labels if cells.any?(&:label)
+    used << :marks if cells.any? {|c| !c.marks.empty?}
+    used << :void if cells.any?(&:void?)
+    used << :explanations if clues.any?(&:explanation)
+    used << :hints if clues.any? {|c| !c.hints.empty?}
+    used << :linked_clues if clues.any? {|c| !c.linked.empty? || c.parent}
+    used << :definitions if clues.any? {|c| !c.spans.empty?}
+    used << :nodir_clues if !nodir_clues.empty?
+    (EXTRAS - [:questions]).each {|f| used << f if self[f] && !self[f].empty?}
+    questions = self.questions || []
+    used << :questions if questions.any?(&:text)
+    used << :final_answer if questions.any? {|q| !q.text}
     used
   end
 
@@ -139,20 +253,46 @@ class XWord
   end
 
   def boundary?(x, y)
-    (x < 0) || (y < 0) || (x >= width) || (y >= height) || black?(x, y)
+    (x < 0) || (y < 0) || (x >= width) || (y >= height) || !solution[y][x].light?
   end
 
-  OPPOSITE = {left: :right, right: :left, top: :bottom, bottom: :top}
   NEIGHBOUR = {left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1]}
 
-  # Is there a bar on the given side of square (x, y)? A bar may be recorded
-  # on either of the two squares it separates.
+  # The key for the bar on the given side of square (x, y) in the bars hash,
+  # or nil if that side is the edge of the grid
+  def bar_key(x, y, side)
+    dx, dy = NEIGHBOUR.fetch(side)
+    nx, ny = x + dx, y + dy
+    return nil unless in_grid?(x, y) && in_grid?(nx, ny)
+    case side
+    when :right, :bottom then [x, y, side]
+    when :left then [nx, ny, :right]
+    when :top then [nx, ny, :bottom]
+    end
+  end
+
+  # Is there a bar on the given side of light (x, y)?
   def bar?(x, y, side)
     return false if boundary?(x, y)
-    return true if solution[y][x].has_bar?(side)
-    dx, dy = NEIGHBOUR[side]
-    nx, ny = x + dx, y + dy
-    !boundary?(nx, ny) && solution[ny][nx].has_bar?(OPPOSITE[side])
+    key = bar_key(x, y, side)
+    !!key && bars[key] == :bar
+  end
+
+  # Add (or with on = false, remove) the bar on the given side of square
+  # (x, y). on can also be another edge style, which bar? ignores. Bars on the edge of the grid are ignored, since the edge already
+  # ends a word.
+  def set_bar(x, y, side, on = true)
+    key = bar_key(x, y, side)
+    return unless key
+    if on
+      bars[key] = on == true ? :bar : on
+    else
+      bars.delete(key)
+    end
+  end
+
+  def in_grid?(x, y)
+    x >= 0 && y >= 0 && x < width && y < height
   end
 
   # Does a word in direction dir end after square (x, y)?
@@ -174,11 +314,11 @@ class XWord
       !boundary?(x, y) && !word_end?(x, y, :down)
   end
 
-  # Word starting from a square
-  def word_from(x, y, dir)
-    s = ""
+  # [x, y] of the squares in the word starting from a square
+  def light_cells(x, y, dir)
+    cells = []
     while !boundary?(x, y) do
-      s += solution[y][x].to_w
+      cells << [x, y]
       break if word_end?(x, y, dir)
       if dir == :across
         x += 1
@@ -186,30 +326,56 @@ class XWord
         y += 1
       end
     end
-    s
+    cells
   end
 
+  # Word starting from a square
+  def word_from(x, y, dir)
+    light_cells(x, y, dir).map {|cx, cy| solution[cy][cx].to_w}.join
+  end
+
+  # Number the grid. Returns the across and down clue numbers in order (and,
+  # if words is true, the words in the grid). Squares with a label don't use
+  # up a number, and their label takes the place of the number.
   def number(words = false)
     n, across, down = 1, [], []
     words_a, words_d = [], []
+    @lights = []
     each_cell {|c| c.number = nil}
     (0 ... height).each do |y|
       (0 ... width).each do |x|
-        if across? x, y
-          across << n
+        a, d = across?(x, y), down?(x, y)
+        next unless a || d
+        cell = solution[y][x]
+        id = cell.label || n
+        if a
+          across << id
           words_a << word_from(x, y, :across)
+          @lights << Light.new(id, :across, x, y)
         end
-        if down? x, y
-          down << n
+        if d
+          down << id
           words_d << word_from(x, y, :down)
+          @lights << Light.new(id, :down, x, y)
         end
-        if across.last == n || down.last == n
-          solution[y][x].number = n
+        unless cell.label
+          cell.number = n
           n += 1
         end
       end
     end
     words ? [across, down, words_a, words_d] : [across, down]
+  end
+
+  # All the lights in grid order, across before down for each square
+  def lights
+    number
+    @lights
+  end
+
+  # The light with the given number (or label) and direction
+  def light(number, dir)
+    lights.find {|l| l.number == number && l.direction == dir}
   end
 
   def each_cell
@@ -229,13 +395,16 @@ class XWord
   end
 
   # {:black => char, :null => char} -> Any[][]
+  #
+  # Void squares are shown as black ones unless opts[:void] is given.
   def to_array(opts = {})
     opts = {:black => '#', :null => ' '}.merge(opts)
+    opts[:void] = opts[:black] unless opts.key?(:void)
     solution.map {|row|
       row.map {|c|
         s = c.solution
         case s
-        when :black, :null
+        when :black, :null, :void
           opts[s]
         when String, Rebus
           block_given? ? (yield c) : c.to_char

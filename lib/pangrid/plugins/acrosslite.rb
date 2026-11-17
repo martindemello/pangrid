@@ -99,11 +99,13 @@ class AcrossLiteBinary < Plugin
   attr_accessor :xw, :cs
 
   DESCRIPTION = "AcrossLite binary format (.puz)"
+  FEATURES = [:circles]
 
   HEADER_FORMAT = "v A12 v V2 A4 v2 A12 c2 v3"
   HEADER_CHECKSUM_FORMAT = "c2 v3"
   EXT_HEADER_FORMAT = "A4 v2"
   EXTENSIONS = %w(LTIM GRBS RTBL GEXT)
+  GEXT_CIRCLE = 0x80
   FILE_MAGIC = "ACROSS&DOWN\0"
 
   def initialize
@@ -182,9 +184,10 @@ class AcrossLiteBinary < Plugin
     xw.scrambled_state ||= 0
     xw.version = "1.3"
     xw.notes ||= ""
-    # rebus extensions are regenerated from the grid below
+    # rebus and circle extensions are regenerated from the grid below
+    gext = get_extension("GEXT")
     xw.extensions = (xw.extensions || []).reject {|e|
-      %w(GRBS RTBL).include? e.section
+      %w(GRBS RTBL GEXT).include? e.section
     }
     xw.title ||= ""
     xw.author ||= ""
@@ -208,6 +211,16 @@ class AcrossLiteBinary < Plugin
       xw.extensions << e
     end
 
+    # GEXT: per-square flags; we keep the ones we don't use (e.g. squares the
+    # solver has revealed) and set the circle flag from the grid
+    size = xw.width * xw.height
+    flags = gext ? gext.grid.first(size).map {|b| b & ~GEXT_CIRCLE} : [0] * size
+    circles = xw.solution.flatten.map {|c| c.circle ? GEXT_CIRCLE : 0}
+    flags = flags.zip(circles).map {|f, c| f | c}
+    if flags.any? {|f| f != 0}
+      xw.extensions << Extension.new(section: "GEXT", grid: flags)
+    end
+
     # calculate checksums
     @cs = checksums
 
@@ -225,35 +238,24 @@ class AcrossLiteBinary < Plugin
   end
 
   private
-  # sort incoming clues in xw.clues -> across and down
+  # Clues are stored in grid order, across before down for each square
+  # (which is numerical order for standard numbering)
+
+  # xw.clues -> across and down
   def unpack_clues
-    across, down = xw.number
-    clues = across.map {|x| [x, :a]} + down.map {|x| [x, :d]}
-    clues.sort!
-    xw.across_clues = []
-    xw.down_clues = []
-    clues.zip(xw.clues).each do |(n, dir), clue|
-      if dir == :a
-        xw.across_clues << clue
-      else
-        xw.down_clues << clue
-      end
+    ac, dn = [], []
+    xw.lights.zip(xw.clues).each do |light, clue|
+      (light.direction == :across ? ac : dn) << clue
     end
+    xw.across_clues = ac
+    xw.down_clues = dn
   end
 
-  # combine across and down clues -> xw.clues
+  # across and down clues -> xw.clues
   def pack_clues
-    across, down = xw.number
-    clues = across.map {|x| [x, :a]} + down.map {|x| [x, :d]}
-    clues.sort!
     ac, dn = xw.across_clues.dup, xw.down_clues.dup
-    xw.clues = []
-    clues.each do |n, dir|
-      if dir == :a
-        xw.clues << ac.shift
-      else
-        xw.clues << dn.shift
-      end
+    xw.clues = xw.lights.map do |light|
+      light.direction == :across ? ac.shift : dn.shift
     end
     check("Extra across clue") { ac.empty? }
     check("Extra down clue") { dn.empty? }
@@ -268,6 +270,12 @@ class AcrossLiteBinary < Plugin
     # record these for file inspection, though they're unlikely to be useful
     if (ltim = get_extension("LTIM"))
       xw.time_elapsed = ltim.elapsed
+    end
+
+    if (gext = get_extension("GEXT"))
+      gext.grid.first(xw.width * xw.height).each_with_index do |flags, i|
+        xw.solution[i / xw.width][i % xw.width].circle = true if flags & GEXT_CIRCLE != 0
+      end
     end
 
     # we need both grbs and rtbl
@@ -310,8 +318,9 @@ class AcrossLiteBinary < Plugin
     }.join
   end
 
+  # e.data includes the terminating \0
   def read_gext(e)
-    e.grid = e.data.bytes
+    e.grid = e.data.bytes.first(e.len || e.data.length)
   end
 
   def write_gext(e)
@@ -442,8 +451,8 @@ class AcrossLiteText < Plugin
       ['SIZE', ["#{xw.height}x#{xw.width}"]],
       ['GRID', write_grid],
       ['REBUS', write_rebus],
-      ['ACROSS', xw.across_clues],
-      ['DOWN', xw.down_clues],
+      ['ACROSS', xw.across_clues.map(&:to_s)],
+      ['DOWN', xw.down_clues.map(&:to_s)],
       ['NOTEPAD', xw.notes.to_s.split("\n")]
     ]
     out = ["<ACROSS PUZZLE V2>"]

@@ -7,12 +7,12 @@ QXW_GRID_ERROR = "Could not read grid from .qxw file"
 class Qxw < Plugin
 
   DESCRIPTION = "QXW grid reader (rectangular grids only)"
-  FEATURES = [:bars]
+  FEATURES = [:bars, :void]
 
   # Square lines have the format
   #   SQ <x> <y> <bars> <merge> <flags> <char>
   # bars: bit 0 = bar on the right edge, bit 1 = bar on the bottom edge
-  # flags: bit 0 = block
+  # flags: bit 0 = block, bit 3 = cutout (not part of the grid)
   def read_squares(lines)
     lines.select {|x| x =~ /^SQ /}.map do |line|
       parts = line.scan(/\w+/)
@@ -24,28 +24,23 @@ class Qxw < Plugin
 
   def read_black(xw, squares)
     squares.each do |col, row, _, flags|
-      next if flags & 1 == 0
+      solution = flags & 8 != 0 ? :void : flags & 1 != 0 ? :black : nil
+      next unless solution
       xw.solution[row] ||= []
-      xw.solution[row][col] = Cell.new(solution: :black)
+      xw.solution[row][col] = Cell.new(solution: solution)
     end
   end
 
-  # Each bar is stored once, on the square to its left or above it; record
-  # it on both squares it separates.
+  # qxw stores each bar once, as the right or bottom edge of a square, just
+  # as XWord#bars does. Bars next to blocks or voids are dropped.
   def read_bars(xw, squares)
-    add = lambda do |col, row, side|
-      cell = xw.solution[row] && xw.solution[row][col]
-      cell.borders |= [side] if cell
-    end
     squares.each do |col, row, bars, _|
       next if xw.boundary?(col, row)
       if bars & 1 != 0 && !xw.boundary?(col + 1, row)
-        add.(col, row, :right)
-        add.(col + 1, row, :left)
+        xw.set_bar(col, row, :right)
       end
       if bars & 2 != 0 && !xw.boundary?(col, row + 1)
-        add.(col, row, :bottom)
-        add.(col, row + 1, :top)
+        xw.set_bar(col, row, :bottom)
       end
     end
   end

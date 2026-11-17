@@ -12,13 +12,34 @@ class XWordTest < PangridTest
                  xw.to_h)
   end
 
+  def test_metadata_attributes
+    XWord::METADATA.each do |f|
+      xw = XWord.new(f => "x")
+      assert_equal "x", xw[f]
+      assert_equal "x", xw.to_h[f]
+    end
+  end
+
+  def test_extras_features
+    xw = make_xw
+    xw.ninas = []
+    assert_equal [], xw.features
+    xw.ninas = [Nina.new([[0, 0]])]
+    xw.questions = [Question.new("Q")]
+    xw.misses = {"CAR" => "Close"}
+    xw.alternatives = [{[0, 0] => "Z"}]
+    assert_equal %i(ninas misses alternatives questions), xw.features
+    xw.questions = [Question.new(nil, "4", "CATS")]
+    assert_equal %i(ninas misses alternatives final_answer), xw.features
+  end
+
   def test_clues_default_to_empty
     assert_equal [], XWord.new.across_clues
     assert_equal [], XWord.new.down_clues
     assert_equal [], XWord.new(across_clues: nil).across_clues
     xw = XWord.new
     xw.down_clues = nil
-    assert_equal [], xw.down_clues
+    assert_equal [], xw.down_clues.map(&:to_s)
   end
 
   def test_unknown_attributes_raise
@@ -71,7 +92,7 @@ class XWordTest < PangridTest
   def test_features
     xw = make_xw
     assert_equal [], xw.features
-    xw.solution[1][2].borders = [:top]
+    xw.set_bar(2, 1, :top)
     assert_equal [:bars], xw.features
     assert_equal [], XWord.new.features
   end
@@ -81,8 +102,8 @@ class XWordTest < PangridTest
     #   -
     #   D E F
     xw = make_xw(grid: %w(ABC DEF))
-    xw.solution[0][1].borders = [:right]
-    xw.solution[0][0].borders = [:bottom]
+    xw.set_bar(1, 0, :right)
+    xw.set_bar(0, 0, :bottom)
     across, down, words_a, words_d = xw.number(true)
     assert_equal [1, 4], across
     assert_equal [2, 3], down
@@ -92,13 +113,92 @@ class XWordTest < PangridTest
     assert_equal [4, nil, nil], xw.solution[1].map(&:number)
   end
 
-  def test_bar_on_either_side
+  def test_bar_seen_from_either_side
     xw = make_xw(grid: %w(AB))
-    xw.solution[0][1].borders = [:left]
+    xw.set_bar(1, 0, :left)
+    assert_equal({[0, 0, :right] => :bar}, xw.bars)
     assert xw.bar?(0, 0, :right)
     assert xw.bar?(1, 0, :left)
     refute xw.bar?(1, 0, :right)
     assert_equal [], xw.number[0]
+  end
+
+  def test_remove_bar_from_either_side
+    xw = make_xw(grid: %w(AB))
+    xw.set_bar(0, 0, :right)
+    xw.set_bar(1, 0, :left, false)
+    assert_empty xw.bars
+    refute xw.bar?(0, 0, :right)
+    assert_equal [], xw.features
+  end
+
+  def test_bars_on_grid_edge_are_ignored
+    xw = make_xw(grid: %w(AB CD))
+    xw.set_bar(0, 0, :left)
+    xw.set_bar(0, 0, :top)
+    xw.set_bar(1, 1, :right)
+    xw.set_bar(1, 1, :bottom)
+    xw.set_bar(5, 5, :right)
+    assert_empty xw.bars
+    refute xw.bar?(1, 1, :right)
+  end
+
+  def test_bar_styles
+    xw = make_xw(grid: %w(AB))
+    xw.set_bar(0, 0, :right, :dotted)
+    assert_equal({[0, 0, :right] => :dotted}, xw.bars)
+    refute xw.bar?(0, 0, :right)
+    refute_includes xw.features, :bars
+  end
+
+  def test_bars_in_to_h
+    xw = make_xw(grid: %w(AB))
+    refute xw.to_h.key?(:bars)
+    xw.set_bar(0, 0, :right)
+    assert_equal({[0, 0, :right] => :bar}, xw.to_h[:bars])
+  end
+
+  def test_void_squares_are_boundaries
+    xw = make_xw(grid: %w(_AB CDE))
+    assert xw.boundary?(0, 0)
+    refute xw.solution[0][0].light?
+    assert_equal [[1, 3], [1, 2]], xw.number
+    assert_equal %w(_AB CDE), grid_strings(xw)
+    assert_equal [['#', 'A', 'B'], ['C', 'D', 'E']], xw.to_array
+    assert_equal [[' ', 'A', 'B'], ['C', 'D', 'E']], xw.to_array(void: ' ')
+  end
+
+  def test_labels_do_not_use_up_numbers
+    xw = make_xw
+    xw.solution[0][2].label = "X"
+    across, down = xw.number
+    assert_equal [1, 2], across
+    assert_equal [1, "X"], down
+    assert_nil xw.solution[0][2].number
+    assert_equal 2, xw.solution[2][0].number
+    xw.solution[0][0].label = ""
+    assert_equal [["", 1], ["", "X"]], xw.number
+  end
+
+  def test_lights
+    xw = make_xw
+    assert_equal [Light.new(1, :across, 0, 0), Light.new(1, :down, 0, 0),
+                  Light.new(2, :down, 2, 0), Light.new(3, :across, 0, 2)],
+                 xw.lights
+    assert_equal Light.new(2, :down, 2, 0), xw.light(2, :down)
+    assert_nil xw.light(2, :across)
+    assert_equal [[2, 0], [2, 1], [2, 2]], xw.light_cells(2, 0, :down)
+  end
+
+  def test_cell_features
+    {circle: true, color: "red", highlight: true, given: true,
+     diagramless: true, label: "A", marks: {"TL" => "1"}}.each do |field, value|
+      xw = make_xw
+      xw.solution[0][0].send(:"#{field}=", value)
+      assert_equal 1, xw.features.length, field
+      assert_includes XWord::FEATURES, xw.features[0]
+    end
+    assert_equal [:void], make_xw(grid: %w(_A BC)).features
   end
 
   def test_boundary
@@ -177,16 +277,14 @@ class CellTest < PangridTest
     refute Cell.new(solution: "A").rebus?
   end
 
-  def test_has_bar
-    c = Cell.new(solution: "A", borders: [:left, :top])
-    assert c.has_bar?(:left)
-    refute c.has_bar?(:right)
-  end
 
-  def test_borders_default_to_empty
-    assert_equal [], Cell.new(solution: "A").borders
-    assert_equal [], Cell.new(solution: "A", borders: nil).borders
-    refute Cell.new(solution: "A").has_bar?(:left)
+  def test_cell_defaults
+    c = Cell.new(solution: "A", marks: nil)
+    assert_equal({}, c.marks)
+    assert c.light?
+    refute c.void?
+    assert Cell.new(solution: :void).void?
+    assert_equal "_", Cell.new(solution: :void).to_w
   end
 
   def test_to_char

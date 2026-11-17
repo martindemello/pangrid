@@ -1,3 +1,34 @@
+# [1.0.0] : 2026-11-16
+
+* New ipuz plugin (read and write)
+* Richer crossword model:
+  * Clues are Clue objects with enumerations, explanations, hints, concise
+    versions, linked clues, labels and cells, plus clues without a
+    direction; exolve reads and writes all of these
+  * Marked definitions in clues (exolve ~{...}~ and ~{{class}...}~), which
+    round-trip through exolve and are written as plain text in other formats
+  * Squares can be circled, coloured, highlighted, diagramless, have a given
+    letter, a label instead of a number, or corner text, or be outside the
+    grid (void)
+  * Puzzle metadata: editor, publisher, publication, date, difficulty, url,
+    id, explanation, postscript, credits, email, origin, language
+  * Ninas, extra questions, final answers, hints for wrong answers, and
+    alternative answers
+* Enumerations can count words or letters, e.g. (8, 2 words), (two words),
+  (7, 2w), (6 letters), or be (?), (abbr.) or (acronym), following exolve's
+  rules for which parenthesised group is the enumeration
+* Bars are stored once, in XWord#bars, and read and changed with
+  XWord#bar? and XWord#set_bar; Cell#borders, Cell#has_bar? and
+  XWord#mirror_bars! are removed
+* ipuz: read and write bars
+* AcrossLite binary: read and write circled squares (GEXT)
+* qxw: read cutouts as squares outside the grid
+* exolve: decorators (@ * ! ~), colours, ninas, questions, alternatives,
+  credits, explanations, postscript and other metadata; multi-line
+  preludes; clues are matched to the grid by number
+* Warnings about unsupported features now cover all of the above, not just
+  bars
+
 # [0.7.0] : 2026-11-15
 
 * Barred grids: read bars from qxw files, and read and write them in exolve
