@@ -40,7 +40,7 @@ class PluginTest < PangridTest
   def test_unsupported_features
     xw = make_xw
     assert_equal [], Plugin.get("text").unsupported_features(xw)
-    xw.solution[0][0].borders = [:right]
+    xw.set_bar(0, 0, :right)
     assert_equal [:bars], Plugin.get("text").unsupported_features(xw)
     assert_equal [], Plugin.get("exolve-filled").unsupported_features(xw)
   end

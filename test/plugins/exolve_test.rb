@@ -37,10 +37,8 @@ class ExolveTest < PangridTest
   #   D E F
   def barred_xw
     xw = make_xw(grid: %w(ABC DEF), across: %w(a1 a4), down: %w(d2 d3))
-    xw.solution[0][1].borders = [:right]
-    xw.solution[0][2].borders = [:left]
-    xw.solution[0][0].borders = [:bottom]
-    xw.solution[1][0].borders = [:top]
+    xw.set_bar(1, 0, :right)
+    xw.set_bar(0, 0, :bottom)
     xw
   end
 
@@ -53,13 +51,14 @@ class ExolveTest < PangridTest
 
   def test_write_bar_after_and_under
     xw = make_xw(grid: %w(AB CD))
-    xw.solution[0][0].borders = [:right, :bottom]
+    xw.set_bar(0, 0, :right)
+    xw.set_bar(0, 0, :bottom)
     assert_includes ExolveBlank.new.write(xw), "  exolve-grid:\n    0+0\n    0 0\n"
   end
 
-  def test_write_bar_recorded_on_one_side_only
+  def test_write_bar_set_from_the_right
     xw = make_xw(grid: %w(AB))
-    xw.solution[0][1].borders = [:left]
+    xw.set_bar(1, 0, :left)
     assert_includes ExolveFilled.new.write(xw), "    A|B\n"
   end
 
@@ -67,8 +66,7 @@ class ExolveTest < PangridTest
     text = "exolve-begin\n  exolve-grid:\n    A_ B| C\n    D  E  F\nexolve-end\n"
     xw = ExolveFilled.new.read(text)
     assert_equal %w(ABC DEF), grid_strings(xw)
-    assert_equal [[:bottom], [:right], [:left]], xw.solution[0].map(&:borders)
-    assert_equal [[:top], [], []], xw.solution[1].map(&:borders)
+    assert_equal({[0, 0, :bottom] => :bar, [1, 0, :right] => :bar}, xw.bars)
     assert_equal [[1, 4], [2, 3]], xw.number
   end
 
@@ -76,9 +74,9 @@ class ExolveTest < PangridTest
     text = "exolve-begin\n  exolve-grid:\n    A+ @B*\n    C  D\nexolve-end\n"
     xw = ExolveFilled.new.read(text)
     assert_equal %w(AB CD), grid_strings(xw)
-    assert_equal [:right, :bottom], xw.solution[0][0].borders
-    assert_equal [:left], xw.solution[0][1].borders
-    assert_equal [:top], xw.solution[1][0].borders
+    assert_equal [[0, 0, :right], [0, 0, :bottom]], xw.bars.keys
+    assert xw.bar?(1, 0, :left)
+    assert xw.bar?(0, 1, :top)
   end
 
   def test_roundtrip_bars
@@ -337,8 +335,7 @@ class ExolveTest < PangridTest
     xw.solution[0][0].circle = true
     xw.solution[0][1].diagramless = true
     xw.solution[0][2].given = true
-    xw.solution[2][0].borders = [:right]
-    xw.solution[2][1].borders = [:left]
+    xw.set_bar(0, 2, :right)
     w = ExolveFilled.new
     out = w.write(xw)
     assert_includes out, "  exolve-grid:\n    C@A*T!\n    A . O\n    B|E E\n"

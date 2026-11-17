@@ -66,7 +66,6 @@ class Ipuz < Plugin
 
     numbers = read_grid(xw, json["puzzle"], json["solution"])
     read_zones(xw, json["zones"])
-    xw.mirror_bars!
     read_labels(xw, numbers)
     read_clues(xw, json["clues"])
     read_answers(xw, json)
@@ -136,7 +135,7 @@ class Ipuz < Plugin
             cell.solution = read_letter(given) if cell.solution == :null
           end
         end
-        apply_style(cell, style)
+        apply_style(xw, x, y, cell, style)
         cell
       end
     end
@@ -170,13 +169,13 @@ class Ipuz < Plugin
     style.is_a?(Hash) ? style : {}
   end
 
-  def apply_style(cell, style)
+  def apply_style(xw, x, y, cell, style)
     s = style_spec(style)
     cell.circle = true if s["shapebg"] == "circle"
     cell.highlight = true if s["highlight"]
     cell.color = s["color"].to_s if s["color"]
     if s["barred"].is_a?(String)
-      cell.borders |= s["barred"].chars.map {|c| SIDES[c.upcase]}.compact
+      s["barred"].chars.map {|c| SIDES[c.upcase]}.compact.each {|side| xw.set_bar(x, y, side)}
     end
     if s["mark"].is_a?(Hash)
       cell.marks = cell.marks.merge(s["mark"].transform_values(&:to_s))
@@ -188,7 +187,7 @@ class Ipuz < Plugin
     return unless zones.is_a?(Array)
     zones.each do |z|
       next unless z.is_a?(Hash)
-      group_cells(xw, z).each {|x, y| apply_style(xw.solution[y][x], z["style"])}
+      group_cells(xw, z).each {|x, y| apply_style(xw, x, y, xw.solution[y][x], z["style"])}
     end
   end
 

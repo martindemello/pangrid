@@ -34,11 +34,7 @@ class QxwTest < PangridTest
   def test_read_bars
     # bar between (0, 0) and (1, 0), and below (2, 0)
     xw = Qxw.new.read(qxw_for(%w(ABC DEF GHI), bars: {[0, 0] => 1, [2, 0] => 2}))
-    assert_equal [:right], xw.solution[0][0].borders
-    assert_equal [:left], xw.solution[0][1].borders
-    assert_equal [:bottom], xw.solution[0][2].borders
-    assert_equal [:top], xw.solution[1][2].borders
-    assert_equal [], xw.solution[1][1].borders
+    assert_equal({[0, 0, :right] => :bar, [2, 0, :bottom] => :bar}, xw.bars)
     assert_equal ["[BC]", "[DEF]", "[GHI]"], xw.across_clues.map(&:to_s)
     assert_equal ["[ADG]", "[BEH]", "[FI]"], xw.down_clues.map(&:to_s)
   end
@@ -46,7 +42,7 @@ class QxwTest < PangridTest
   def test_ignores_bars_on_grid_edge_and_blocks
     # qxw can leave bar bits set on edge squares and blocks
     xw = Qxw.new.read(qxw_for(%w(A#B CDE), bars: {[2, 0] => 1, [1, 0] => 3, [0, 1] => 2}))
-    assert xw.solution.flatten.all? {|c| c.borders.empty?}
+    assert_empty xw.bars
   end
 
   def test_read_barred_sample

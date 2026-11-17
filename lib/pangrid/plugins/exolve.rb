@@ -246,7 +246,7 @@ module ExolveReader
     lines = s[(first + 1)...last]
     xw = XWord.new
     clues = {}
-    colours, ninas = [], []
+    colours, ninas, grid_bars = [], [], []
     sections(lines).each do |field, value, body|
       text = value.empty? ? body.map(&:strip).join("\n") : value
       next if field == "id" && text == PLACEHOLDER_ID
@@ -275,7 +275,7 @@ module ExolveReader
       elsif field == "alternatives"
         (xw.alternatives ||= []) << parse_alternatives(xw, text)
       elsif field == "grid"
-        xw.solution = parse_grid(body)
+        xw.solution, grid_bars = parse_grid(body)
       end
     end
     check("exolve-grid missing") { xw.solution && !xw.solution.empty? }
@@ -286,7 +286,7 @@ module ExolveReader
       xw.solution.length == xw.height &&
         xw.solution.all? {|row| row.length == xw.width}
     }
-    xw.mirror_bars!
+    grid_bars.each {|x, y, side| xw.set_bar(x, y, side)}
     read_clues(xw, clues)
     colours.each do |line|
       colour, cells = parse_cell_list(xw, line)
@@ -408,12 +408,14 @@ module ExolveReader
 
   # Each square is a character followed by optional decorators (see
   # ExolveWriter#format_grid)
+  # -> [Cell[][], [x, y, side][] bars]
   def parse_grid(lines)
-    grid = lines.map do |line|
-      line.scan(/([^\s|_+@*!~])([|_+@*!~]*)/).map do |c, decorators|
+    bars = []
+    grid = lines.each_with_index.map do |line, y|
+      line.scan(/([^\s|_+@*!~])([|_+@*!~]*)/).each_with_index.map do |(c, decorators), x|
         cell = Cell.new(:solution => parse_grid_char(c))
-        cell.borders << :right if decorators =~ /[|+]/
-        cell.borders << :bottom if decorators =~ /[_+]/
+        bars << [x, y, :right] if decorators =~ /[|+]/
+        bars << [x, y, :bottom] if decorators =~ /[_+]/
         cell.circle = true if decorators.include?("@")
         cell.diagramless = true if decorators.include?("*")
         cell.given = true if decorators.include?("!")
@@ -421,7 +423,7 @@ module ExolveReader
         cell
       end
     end
-    grid
+    [grid, bars]
   end
 end
 

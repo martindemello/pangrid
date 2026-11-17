@@ -31,22 +31,16 @@ class Qxw < Plugin
     end
   end
 
-  # Each bar is stored once, on the square to its left or above it; record
-  # it on both squares it separates.
+  # qxw stores each bar once, as the right or bottom edge of a square, just
+  # as XWord#bars does. Bars next to blocks or voids are dropped.
   def read_bars(xw, squares)
-    add = lambda do |col, row, side|
-      cell = xw.solution[row] && xw.solution[row][col]
-      cell.borders |= [side] if cell
-    end
     squares.each do |col, row, bars, _|
       next if xw.boundary?(col, row)
       if bars & 1 != 0 && !xw.boundary?(col + 1, row)
-        add.(col, row, :right)
-        add.(col + 1, row, :left)
+        xw.set_bar(col, row, :right)
       end
       if bars & 2 != 0 && !xw.boundary?(col, row + 1)
-        add.(col, row, :bottom)
-        add.(col, row + 1, :top)
+        xw.set_bar(col, row, :bottom)
       end
     end
   end

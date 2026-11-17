@@ -31,7 +31,6 @@ end
 #   :null is an empty light (a square whose letter isn't known); :void is a
 #   square that is not part of the grid at all (ipuz null, qxw cutouts)
 # number = int, filled in by XWord#number
-# borders = [:left, :right, :top, :bottom]
 # circle, highlight, given, diagramless = bool
 #   given: the letter is shown to the solver (exolve "!", ipuz "value")
 # color = string, as given in the source file (e.g. "FF0000", "palegreen")
@@ -40,17 +39,12 @@ end
 # marks = { "TL" | "T" | "TR" | "L" | "C" | "R" | "BL" | "B" | "BR" => text }
 #         small text in the corners or sides of the square (ipuz mark)
 class Cell
-  attr_accessor :solution, :number, :borders, :circle, :color, :highlight,
+  attr_accessor :solution, :number, :circle, :color, :highlight,
                 :given, :diagramless, :label, :marks
 
   def initialize(**args)
-    @borders = []
     @marks = {}
     args.each {|k,v| self.send :"#{k}=", v}
-  end
-
-  def borders=(b)
-    @borders = b || []
   end
 
   def marks=(m)
@@ -68,10 +62,6 @@ class Cell
   # Part of a word: not a block or a void square
   def light?
     !black? && !void?
-  end
-
-  def has_bar?(s)
-    borders.include? s
   end
 
   def rebus?
@@ -113,6 +103,11 @@ Light = Struct.new(:number, :direction, :x, :y)
 # nodir_clues = Clue[], clues without a direction (exolve nodir, ipuz
 #               "Clues"), typically with a label and a list of cells
 # rebus = { solution => [int, rebus_char] }
+# bars = { [x, y, :right | :bottom] => :bar }, the bars between squares. Each
+#        bar is stored once, as the right or bottom edge of the square to its
+#        left or above it; use bar? and set_bar rather than editing the hash.
+#        The value is the style of the edge, leaving room for others (e.g.
+#        ipuz dotted or dashed edges).
 #
 # The clue lists also accept strings, which are converted to Clues.
 #
@@ -147,7 +142,7 @@ class XWord
   EXTRAS = %i(ninas questions misses alternatives)
 
   # Fields shared by all formats
-  COMMON = %i(width height solution across_clues down_clues nodir_clues
+  COMMON = %i(width height solution bars across_clues down_clues nodir_clues
               rebus) + METADATA + EXTRAS
 
   # AcrossLite binary format fields
@@ -167,6 +162,7 @@ class XWord
     @across_clues = []
     @down_clues = []
     @nodir_clues = []
+    @bars = {}
     args.each {|k, v| self[k] = v}
   end
 
@@ -175,6 +171,10 @@ class XWord
     define_method(:"#{list}=") do |clues|
       instance_variable_set(:"@#{list}", (clues || []).map {|c| Clue.coerce(c)})
     end
+  end
+
+  def bars=(b)
+    @bars = b || {}
   end
 
   def all_clues
@@ -193,7 +193,7 @@ class XWord
 
   def to_h
     ATTRIBUTES.to_h {|a| [a, public_send(a)]}.compact.reject {|k, v|
-      k == :nodir_clues && v.empty?
+      (k == :nodir_clues || k == :bars) && v.empty?
     }
   end
 
@@ -225,7 +225,7 @@ class XWord
     cells = solution ? solution.flatten.compact : []
     clues = all_clues
     used = []
-    used << :bars if cells.any? {|c| !c.borders.empty?}
+    used << :bars if bars.value?(:bar)
     used << :circles if cells.any?(&:circle)
     used << :colors if cells.any?(&:color)
     used << :highlights if cells.any?(&:highlight)
@@ -254,29 +254,43 @@ class XWord
     (x < 0) || (y < 0) || (x >= width) || (y >= height) || !solution[y][x].light?
   end
 
-  OPPOSITE = {left: :right, right: :left, top: :bottom, bottom: :top}
   NEIGHBOUR = {left: [-1, 0], right: [1, 0], top: [0, -1], bottom: [0, 1]}
 
-  # Is there a bar on the given side of square (x, y)? A bar may be recorded
-  # on either of the two squares it separates.
-  def bar?(x, y, side)
-    return false if boundary?(x, y)
-    return true if solution[y][x].has_bar?(side)
-    dx, dy = NEIGHBOUR[side]
+  # The key for the bar on the given side of square (x, y) in the bars hash,
+  # or nil if that side is the edge of the grid
+  def bar_key(x, y, side)
+    dx, dy = NEIGHBOUR.fetch(side)
     nx, ny = x + dx, y + dy
-    !boundary?(nx, ny) && solution[ny][nx].has_bar?(OPPOSITE[side])
+    return nil unless in_grid?(x, y) && in_grid?(nx, ny)
+    case side
+    when :right, :bottom then [x, y, side]
+    when :left then [nx, ny, :right]
+    when :top then [nx, ny, :bottom]
+    end
   end
 
-  # Record each bar on the squares on both sides of it
-  def mirror_bars!
-    each_cell_with_coords do |x, y, cell|
-      right = x + 1 < width && solution[y][x + 1]
-      below = y + 1 < height && solution[y + 1][x]
-      right.borders |= [:left] if right && cell.has_bar?(:right)
-      below.borders |= [:top] if below && cell.has_bar?(:bottom)
-      solution[y][x - 1].borders |= [:right] if x > 0 && cell.has_bar?(:left)
-      solution[y - 1][x].borders |= [:bottom] if y > 0 && cell.has_bar?(:top)
+  # Is there a bar on the given side of light (x, y)?
+  def bar?(x, y, side)
+    return false if boundary?(x, y)
+    key = bar_key(x, y, side)
+    !!key && bars[key] == :bar
+  end
+
+  # Add (or with on = false, remove) the bar on the given side of square
+  # (x, y). on can also be another edge style, which bar? ignores. Bars on the edge of the grid are ignored, since the edge already
+  # ends a word.
+  def set_bar(x, y, side, on = true)
+    key = bar_key(x, y, side)
+    return unless key
+    if on
+      bars[key] = on == true ? :bar : on
+    else
+      bars.delete(key)
     end
+  end
+
+  def in_grid?(x, y)
+    x >= 0 && y >= 0 && x < width && y < height
   end
 
   # Does a word in direction dir end after square (x, y)?

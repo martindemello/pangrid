@@ -48,8 +48,7 @@ class IpuzTest < PangridTest
     assert_equal [3, 3], [xw.width, xw.height]
     assert_equal %w(CAT A#O BE_), grid_strings(xw)
     assert xw.solution[0][0].circle
-    assert_equal [:right], xw.solution[0][1].borders
-    assert_equal [:left], xw.solution[0][2].borders
+    assert_equal({[1, 0, :right] => :bar}, xw.bars)
     assert_equal "FF0000", xw.solution[2][0].color
     assert xw.solution[2][1].given
     refute xw.solution[0][1].given
