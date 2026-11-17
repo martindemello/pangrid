@@ -9,6 +9,15 @@ ClueRef = Struct.new(:number, :direction) do
   end
 end
 
+# A marked part of a clue's text: length characters starting at start. With
+# no style, it marks the definition; exolve also allows a CSS class, e.g.
+# "xlv-blue", to mark other parts such as indicators.
+ClueSpan = Struct.new(:start, :length, :style) do
+  def range
+    start...(start + length)
+  end
+end
+
 # A clue. Simple formats just use the clue text, via to_s; richer formats
 # (exolve, ipuz) can fill in the other fields.
 #
@@ -26,15 +35,19 @@ end
 # references:  ClueRefs to other clues this clue mentions
 # cells:       [x, y] squares of the answer, for clues not placed by
 #              numbering (e.g. exolve nodir clues, ipuz zones)
+# spans:       ClueSpans marking parts of the text, usually the definition
+#              (exolve ~{...}~). They index into text, so text stays plain
+#              and formats without markup can use it as it is; change the
+#              spans along with the text.
 # tags, type, image, highlight: ipuz metadata
 class Clue
   FIELDS = %i(number label text enumeration explanation answer hints concise
-              linked parent references cells tags type image highlight)
+              linked parent references cells spans tags type image highlight)
 
   attr_accessor(*FIELDS)
 
   # Fields that default to (and are never nil instead of) an empty list
-  LISTS = %i(hints linked references cells tags)
+  LISTS = %i(hints linked references cells spans tags)
 
   # Enumerations follow the rules exolve uses. The usual kind is numeric:
   # numbers, commas, hyphens, apostrophes, periods and spaces, e.g. "4,3",

@@ -166,6 +166,62 @@ class ExolveTest < PangridTest
     assert_equal ["Last (2,1) wins", "2"], xw.down_clues[2].then {|d| [d.text, d.enumeration]}
   end
 
+  # In-clue annotations, from the exolve README
+  def test_read_definitions
+    xw = read_exolve(<<~EOF, grid: %w(ABCD EFGH IJKL MNOP))
+      exolve-across:
+        1 Replace bottles containing ~{questionable medicine}~ (7) Hidden {... containing}
+        5 ~{{xlv-blue}Replace}~ bottles ~{{my-style}containing}~ ~{questionable medicine}~ (7)
+        6 Unclosed ~{marker (4)
+        7 Not a span: ~ { } ~ (4)
+    EOF
+    a = xw.across_clues
+    assert_equal "Replace bottles containing questionable medicine", a[0].text
+    assert_equal [ClueSpan.new(27, 21, nil)], a[0].spans
+    assert_equal "questionable medicine", a[0].text[a[0].spans[0].range]
+    assert_equal ["7", "Hidden {... containing}"], [a[0].enumeration, a[0].explanation]
+    assert_equal "Replace bottles containing questionable medicine", a[1].text
+    assert_equal [ClueSpan.new(0, 7, "xlv-blue"), ClueSpan.new(16, 10, "my-style"),
+                  ClueSpan.new(27, 21, nil)], a[1].spans
+    assert_equal ["Unclosed ~{marker", "4", []], [a[2].text, a[2].enumeration, a[2].spans]
+    assert_equal ["Not a span: ~ { } ~", []], [a[3].text, a[3].spans]
+    assert_includes xw.features, :definitions
+  end
+
+  def test_roundtrip_definitions
+    text = <<~EOF
+      exolve-across:
+        1 Replace bottles containing ~{questionable medicine}~ (7)
+        5 ~{{xlv-blue}Replace}~ bottles ~{{my-style}containing}~ ~{questionable medicine}~ (7) Anno
+        6 ~{Whole clue}~ [] Anno
+    EOF
+    xw = read_exolve(text, grid: %w(ABCD EFGH IJKL MNOP))
+    out = ExolveFilled.new.write(xw)
+    text.lines.drop(1).each {|l| assert_includes out, l.sub(/\A  (\d) /, '     \\1 ')}
+    assert_equal out, ExolveFilled.new.write(ExolveFilled.new.read(out))
+  end
+
+  def test_definitions_are_plain_text_in_other_formats
+    xw = read_exolve(<<~EOF, grid: %w(ABCD EFGH IJKL MNOP))
+      exolve-across:
+        1 Replace bottles containing ~{questionable medicine}~ (7)
+    EOF
+    assert_equal "Replace bottles containing questionable medicine (7)", xw.across_clues[0].to_s
+    %w(text json ipuz across-lite-text across-lite-binary reddit-filled).each do |f|
+      out = Plugin.get(f).new.write(xw)
+      refute_includes out, "~{", f
+      assert_includes out, "containing questionable medicine", f
+    end
+    assert_includes Plugin.get("ipuz").unsupported_features(xw), :definitions
+    assert_empty ExolveFilled.unsupported_features(xw)
+  end
+
+  def test_write_spans_skips_bad_ranges
+    xw = make_xw
+    xw.across_clues[0].spans = [ClueSpan.new(0, 2), ClueSpan.new(1, 2), ClueSpan.new(4, 9)]
+    assert_includes ExolveFilled.new.write(xw), "     1 ~{Fe}~line\n"
+  end
+
   # The examples from the exolve README
   def test_read_enumeration_rules
     xw = read_exolve(<<~EOF, grid: %w(ABCD EFGH IJKL MNOP))

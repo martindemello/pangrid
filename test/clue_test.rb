@@ -93,5 +93,15 @@ class ClueTest < PangridTest
     xw.down_clues[1].linked = [ClueRef.new(3, :across)]
     xw.nodir_clues = ["x"]
     assert_equal %i(explanations hints linked_clues nodir_clues), xw.features
+    xw.across_clues[1].spans = [ClueSpan.new(0, 3)]
+    assert_equal %i(explanations hints linked_clues definitions nodir_clues), xw.features
+  end
+
+  def test_spans
+    c = Clue.new("Feline pet", spans: [ClueSpan.new(0, 6)])
+    assert_equal "Feline", c.text[c.spans[0].range]
+    assert_equal "Feline pet", c.to_s
+    assert_equal [], Clue.new("x").spans
+    refute_equal Clue.new("x"), c.tap { c.text = "x" }
   end
 end

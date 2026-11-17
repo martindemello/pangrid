@@ -15,7 +15,8 @@ module Pangrid
 # Linked clues list the later parts after the first number; parts in another
 # direction get a suffix (a or d). The explanation ("anno") follows the
 # enumeration; a clue with an explanation but no enumeration separates the two
-# with "[]". Clues without a direction (exolve-nodir) start with the cells
+# with "[]". The definition can be marked as ~{definition}~, and other parts
+# of the clue as ~{{css-class}text}~. Clues without a direction (exolve-nodir) start with the cells
 # they occupy and a label: "#c3 #c5 [A] Clue (2)".
 module ExolveClues
   # Written when the puzzle has no id; exolve needs one to save progress
@@ -43,6 +44,10 @@ module ExolveClues
   CONCISE = /concise:\s*/i
   # Separator lines between groups of clues
   SEPARATOR = /---/
+  # In-clue annotations: ~{text}~ or ~{{css-class}text}~
+  SPAN_OPEN = /~\{/
+  SPAN_STYLE = /\{([^{}~]*)\}/
+  SPAN_CLOSE = /\}~/
 
   # [x, y] -> "c<col>r<row>", rows counted from the bottom
   def format_cell(xw, (x, y))
@@ -77,7 +82,7 @@ module ExolveClues
     end
     clue.label = ss[1] if ss.scan(LABEL)
     text, enum, anno = parse_clue_body(ss)
-    clue.text = text.strip
+    clue.text, clue.spans = parse_spans(text.strip)
     clue.enumeration = enum && enum.strip
     clue.explanation = anno.strip if anno && !anno.strip.empty?
     clue
@@ -96,6 +101,41 @@ module ExolveClues
     else
       [ss.rest, nil, nil]
     end
+  end
+
+  # Clue text with ~{...}~ markup -> [plain text, ClueSpan[]]. A "~{" with
+  # no closing "}~" is kept as text.
+  def parse_spans(text)
+    ss = StringScanner.new(text)
+    plain, spans = +"", []
+    until ss.eos?
+      start = ss.pos
+      if ss.scan(SPAN_OPEN)
+        style = ss.scan(SPAN_STYLE) && ss[1]
+        if (inner = ss.scan_until(SPAN_CLOSE))
+          inner = inner.delete_suffix(ss.matched)
+          spans << ClueSpan.new(plain.length, inner.length, style)
+          plain << inner
+          next
+        end
+        ss.pos = start
+      end
+      plain << ss.getch
+    end
+    [plain, spans]
+  end
+
+  # Plain text and ClueSpans -> text with ~{...}~ markup
+  def format_spans(text, spans)
+    out, pos = +"", 0
+    spans.sort_by(&:start).each do |sp|
+      next if sp.start < pos || sp.start + sp.length > text.length
+      out << text[pos...sp.start] << "~{"
+      out << "{#{sp.style}}" if sp.style
+      out << text[sp.range] << "}~"
+      pos = sp.start + sp.length
+    end
+    out << text[pos..]
   end
 
   # String[] -> Clue[], attaching Hint: and Concise: lines to their clues
@@ -134,7 +174,7 @@ module ExolveClues
     lead = lead.rjust(2) if n && cells.empty?
     s = lead.empty? ? [] : [lead]
     s << "[#{label}]" if label
-    s << clue.text if clue.text && !clue.text.empty?
+    s << format_spans(clue.text, clue.spans) if clue.text && !clue.text.empty?
     s << "(#{clue.enumeration})" if clue.enumeration
     if clue.explanation
       s << "[]" unless clue.enumeration
@@ -452,7 +492,7 @@ module ExolveReader
 end
 
 EXOLVE_FEATURES = %i(bars circles colors given diagramless labels
-                     explanations hints linked_clues nodir_clues
+                     explanations hints linked_clues definitions nodir_clues
                      ninas questions final_answer alternatives)
 
 class ExolveFilled < Plugin

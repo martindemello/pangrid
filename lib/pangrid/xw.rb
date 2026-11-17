@@ -212,6 +212,7 @@ class XWord
     explanations: "clue explanations",
     hints: "clue hints",
     linked_clues: "linked clues",
+    definitions: "definitions marked in clues",
     nodir_clues: "clues without a direction",
     ninas: "ninas",
     questions: "extra questions",
@@ -237,6 +238,7 @@ class XWord
     used << :explanations if clues.any?(&:explanation)
     used << :hints if clues.any? {|c| !c.hints.empty?}
     used << :linked_clues if clues.any? {|c| !c.linked.empty? || c.parent}
+    used << :definitions if clues.any? {|c| !c.spans.empty?}
     used << :nodir_clues if !nodir_clues.empty?
     (EXTRAS - [:questions]).each {|f| used << f if self[f] && !self[f].empty?}
     questions = self.questions || []
